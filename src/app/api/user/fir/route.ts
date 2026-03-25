@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         location: data.location,
         description: data.description,
         accusedDetails: data.accusedDetails || null,
-        evidenceUrls: evidenceUrls.length ? evidenceUrls : null,
+        evidenceUrls: evidenceUrls.length ? JSON.stringify(evidenceUrls) : null,
         otpCode: otp,
         otpSentAt: new Date(),
       },

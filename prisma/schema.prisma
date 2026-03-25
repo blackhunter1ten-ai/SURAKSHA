@@ -25,6 +25,7 @@ model User {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   emergencies            EmergencyEvent[]
+  firs                   FIR[]
 }
 
 model EmergencyEvent {
@@ -65,14 +66,8 @@ model SystemActivity {
   createdAt DateTime @default(now())
 }
 
-enum IncidentType {
-  THEFT
-  ASSAULT
-  CYBERCRIME
-  HARASSMENT
-  ROBBERY
-  OTHER
-}
+// IncidentType values: THEFT, ASSAULT, CYBERCRIME, HARASSMENT, ROBBERY, OTHER
+// Stored as String because SQLite does not support enums.
 
 model FIR {
   id               String       @id @default(cuid())
@@ -81,12 +76,12 @@ model FIR {
   complainantName  String
   complainantAddress String?
   complainantContact String?
-  incidentType     IncidentType
+  incidentType     String
   incidentDateTime DateTime
   location         String
-  description      String       @db.Text
+  description      String
   accusedDetails   String?
-  evidenceUrls     Json?
+  evidenceUrls     String?
   status           String       @default("PENDING")
   otpCode          String?
   otpSentAt        DateTime?
@@ -94,6 +89,7 @@ model FIR {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otp              Otp?
 
   @@map("firs")
 }
