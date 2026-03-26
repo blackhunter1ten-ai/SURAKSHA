@@ -42,7 +42,7 @@ export default function ContactPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="font-bold text-slate-900">System Status</h3>
             <ul className="mt-3 space-y-2 text-sm">
-              {["Blockchain Network", "AI Detection System", "IoT Network"].map(
+              {["AI Detection System", "IoT Network", "Emergency Response"].map(
                 (s) => (
                   <li key={s} className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />

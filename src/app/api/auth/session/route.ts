@@ -8,29 +8,26 @@ export async function GET() {
     return NextResponse.json({ user: null });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.sub },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      did: true,
-      status: true,
-      kycStatus: true,
-      blockchainIdStatus: true,
-      locationTrackingStatus: true,
-      age: true,
-      phone: true,
-      nationality: true,
-      gender: true,
-      permanentAddress: true,
-      emergencyContactName: true,
-      emergencyContactPhone: true,
-      idDocumentType: true,
-      idDocumentNumber: true,
-    },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.sub },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        kycStatus: true,
+        locationTrackingStatus: true,
+        phone: true,
+        emergencyContactName: true,
+        emergencyContactPhone: true,
+      },
+    });
 
-  return NextResponse.json({ user: user ?? null, session });
+    return NextResponse.json({ user: user ?? null, session });
+  } catch (error: any) {
+    console.error("SESSION ERROR:", error);
+    return NextResponse.json({ error: "Failed to fetch session data" }, { status: 500 });
+  }
 }

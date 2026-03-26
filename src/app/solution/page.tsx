@@ -20,30 +20,10 @@ export default function SolutionPage() {
         Interactive Process Visualizations
       </h1>
       <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
-        Experience demonstrations of blockchain ID issuance, AI monitoring, and
+        Experience demonstrations of AI monitoring and
         geo-fencing tied to the same backend used by dashboards.
       </p>
 
-      <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-900">
-          Blockchain ID Issuance Process
-        </h2>
-        <p className="text-sm text-slate-600">
-          Real-time digital identity creation and verification
-        </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 md:gap-4">
-          {["Register", "KYC", "Anchor", "DID Live"].map((step, idx) => (
-            <div key={step} className="flex items-center gap-2">
-              <div className="flex h-14 w-24 items-center justify-center rounded-lg bg-sky-100 text-xs font-semibold text-sky-900">
-                {step}
-              </div>
-              {idx < 3 && (
-                <span className="hidden text-slate-400 md:inline">—</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
 
       <div
         id="emergency"
@@ -85,7 +65,7 @@ export default function SolutionPage() {
             </span>{" "}
             <span className="rounded bg-blue-100 px-1.5 py-0.5">Coming Soon</span>
             <p className="mt-2">
-              SOS, fall detection, and blockchain identity on wearable — schema
+              SOS and fall detection on wearable — schema
               ready for vitals ingestion.
             </p>
           </div>
@@ -108,7 +88,7 @@ export default function SolutionPage() {
             Automated incident reporting
           </p>
           <p className="mt-3 text-sm text-slate-600">
-            Electronic FIR drafts with blockchain audit trail — sample payload
+            Electronic FIR drafts with secure audit trail — sample payload
             from API for demos.
           </p>
           <ul className="mt-3 space-y-2 text-xs">
@@ -116,10 +96,7 @@ export default function SolutionPage() {
               Report Generation{" "}
               <span className="rounded bg-amber-200 px-1.5">Automated</span>
             </li>
-            <li className="flex justify-between">
-              Blockchain Verified{" "}
-              <span className="text-emerald-600">✓ Immutable</span>
-            </li>
+
             <li className="flex justify-between">
               Authority Integration{" "}
               <span className="rounded bg-amber-200 px-1.5">Real-time</span>
@@ -137,18 +114,7 @@ export default function SolutionPage() {
         </div>
       </div>
 
-      <div className="mt-16 grid gap-6 md:grid-cols-3">
-        <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm">
-          <Lock className="h-8 w-8 text-blue-600" />
-          <h3 className="mt-3 font-bold">Blockchain Digital IDs</h3>
-          <p className="mt-2 text-sm text-slate-600">
-            KYC + itinerary + contacts anchored as hashes.
-          </p>
-          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 text-xs">
-            <span className="font-semibold text-emerald-700">Live</span>{" "}
-            <code className="text-slate-700">0xa1b2c3…</code> Tourist ID
-          </div>
-        </div>
+      <div className="mt-16 grid gap-6 md:grid-cols-2">
         <div className="rounded-2xl border border-violet-100 bg-white p-6 shadow-sm">
           <Brain className="h-8 w-8 text-violet-600" />
           <h3 className="mt-3 font-bold">AI Anomaly Detection</h3>

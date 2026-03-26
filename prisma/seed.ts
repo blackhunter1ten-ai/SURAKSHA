@@ -15,7 +15,6 @@ async function main() {
       passwordHash,
       name: "Authority Admin",
       role: "ADMIN",
-      did: null,
     },
   });
 
@@ -27,13 +26,11 @@ async function main() {
       passwordHash,
       name: "John Smith",
       role: "TOURIST",
-      did: "DID:0x1a2b3c",
       lat: 28.6129,
       lng: 77.2295,
       address: "Tourist Information Center, Rajpath, India Gate, New Delhi, India",
       status: "SAFE",
       kycStatus: "Complete",
-      blockchainIdStatus: "Pending",
       locationTrackingStatus: "Pending",
     },
   });
@@ -46,13 +43,11 @@ async function main() {
       passwordHash,
       name: "Maria Garcia",
       role: "TOURIST",
-      did: "DID:0x4d5e6f",
       lat: 40.758,
       lng: -73.9855,
       address: "Visitor Rest Area, New York, USA",
       status: "SAFE",
       kycStatus: "Processing",
-      blockchainIdStatus: "Pending",
       locationTrackingStatus: "Pending",
     },
   });
@@ -65,13 +60,11 @@ async function main() {
       passwordHash,
       name: "Alex Kumar",
       role: "TOURIST",
-      did: "DID:0x9f8e7d",
       lat: 28.55,
       lng: 77.2,
       address: "Connaught Place, New Delhi",
       status: "WARNING",
       kycStatus: "Complete",
-      blockchainIdStatus: "Complete",
       locationTrackingStatus: "Complete",
     },
   });
@@ -84,35 +77,16 @@ async function main() {
       passwordHash,
       name: "Sam Lee",
       role: "TOURIST",
-      did: "DID:0xabc123",
       lat: 28.62,
       lng: 77.21,
       address: "Restricted zone approach, Delhi",
       status: "EMERGENCY",
       kycStatus: "Complete",
-      blockchainIdStatus: "Complete",
       locationTrackingStatus: "Complete",
     },
   });
 
-  const count = await prisma.blockchainActivity.count();
-  if (count === 0) {
-    await prisma.blockchainActivity.createMany({
-      data: [
-        {
-          hash: "0xa1b2c3d4e5f678901234567890abcdef",
-          label: "Tourist ID anchored",
-          touristDid: "DID:0x1a2b3c",
-        },
-        {
-          hash: "0xfedcba098765432109876543210fedcba",
-          label: "FIR audit trail",
-          touristDid: "DID:0x4d5e6f",
 
-        },
-      ],
-    });
-  }
 
   const actCount = await prisma.systemActivity.count();
   if (actCount === 0) {

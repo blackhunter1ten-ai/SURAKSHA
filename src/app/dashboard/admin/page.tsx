@@ -26,7 +26,6 @@ type Tourist = {
   id: string;
   name: string;
   email: string;
-  did: string | null;
   address: string | null;
   status: string;
   lat: number | null;
@@ -50,7 +49,7 @@ export default function AdminDashboardPage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [tourists, setTourists] = useState<Tourist[]>([]);
   const [emergencies, setEmergencies] = useState<
-    { id: string; createdAt: string; user: { name: string; did: string | null } }[]
+    { id: string; createdAt: string; user: { name: string } }[]
   >([]);
 
   useEffect(() => {
@@ -264,7 +263,6 @@ export default function AdminDashboardPage() {
                 <div>
                   <p className="font-semibold text-slate-900">{t.name}</p>
                   <p className="text-xs text-slate-500">{t.email}</p>
-                  <p className="text-xs text-slate-500">{t.did ?? "No DID"}</p>
                   <p className="text-xs text-slate-600">Last known: {t.address ?? "—"}</p>
                 </div>
                 {(t.age != null ||

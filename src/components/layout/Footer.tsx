@@ -8,7 +8,7 @@ export function Footer() {
           <div>
             <p className="text-lg font-bold text-white">SmartTouristSafety System</p>
             <p className="mt-3 text-sm leading-relaxed">
-              Advanced tourist safety monitoring powered by blockchain, AI, and IoT for
+              Advanced tourist safety monitoring powered by AI and IoT for
               comprehensive protection and emergency response.
             </p>
             <div className="mt-4 flex flex-wrap gap-3 text-xs">
@@ -26,7 +26,6 @@ export function Footer() {
             </h3>
             <ul className="mt-4 space-y-2 text-sm">
               {[
-                "Blockchain Digital IDs",
                 "AI Anomaly Detection",
                 "Geo-Fencing Alerts",
                 "IoT Smart Bands",
@@ -82,7 +81,6 @@ export function Footer() {
             Protecting tourists worldwide with advanced technology
           </p>
           <div className="flex flex-wrap justify-center gap-2 text-xs text-slate-400">
-            <span className="rounded-full border border-slate-600 px-2 py-0.5">Blockchain Secured</span>
             <span className="rounded-full border border-slate-600 px-2 py-0.5">AI Powered</span>
             <span className="rounded-full border border-slate-600 px-2 py-0.5">IoT Enabled</span>
           </div>

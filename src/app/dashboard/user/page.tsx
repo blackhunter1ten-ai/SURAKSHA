@@ -20,18 +20,11 @@ type U = {
   did: string | null;
   status: string;
   kycStatus: string;
-  blockchainIdStatus: string;
   locationTrackingStatus: string;
   address: string | null;
-  age: number | null;
   phone: string | null;
-  nationality: string | null;
-  gender: string | null;
-  permanentAddress: string | null;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
-  idDocumentType: string | null;
-  idDocumentNumber: string | null;
 };
 
 export default function UserDashboardPage() {
@@ -85,11 +78,7 @@ export default function UserDashboardPage() {
               icon={Shield}
               status={user.kycStatus}
             />
-            <StatusCard
-              title="Blockchain ID Creation"
-              icon={CheckCircle2}
-              status={user.blockchainIdStatus}
-            />
+
             <StatusCard
               title="Location Tracking Active"
               icon={MapPin}
@@ -106,10 +95,7 @@ export default function UserDashboardPage() {
 
       {user && (
         <div className="mt-8 flex flex-wrap gap-6 rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-          <div>
-            <span className="text-xs text-slate-500">DID</span>
-            <p className="font-mono text-sm text-blue-800">{user.did ?? "Pending"}</p>
-          </div>
+
           <div>
             <span className="text-xs text-slate-500">Safety</span>
             <p

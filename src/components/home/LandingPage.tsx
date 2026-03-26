@@ -28,7 +28,7 @@ const heroSlides = [
   },
   {
     title: "Are You Safe — Smart Tourist Safety Monitoring 2025",
-    subtitle: "India's next-gen tourist safety stack: blockchain IDs, AI, and SOS.",
+    subtitle: "India's next-gen tourist safety stack: AI, geo-fencing, and SOS.",
   },
   {
     title: "Thank You for Supporting Smart Tourist Safety Monitoring 2025",
@@ -39,7 +39,6 @@ const heroSlides = [
 const registryTourists = [
   {
     name: "John Smith",
-    did: "DID:0x1a2b3c",
     place: "India Gate",
     city: "New Delhi, India",
     detail: "Rajpath, India Gate, New Delhi",
@@ -49,7 +48,6 @@ const registryTourists = [
   },
   {
     name: "Maria Garcia",
-    did: "DID:0x4d5e6f",
     place: "Times Square",
     city: "New York, USA",
     detail: "Times Square, New York, NY",
@@ -59,7 +57,6 @@ const registryTourists = [
   },
   {
     name: "David Chen",
-    did: "DID:0x7g8h9i",
     place: "Big Ben",
     city: "London, United Kingdom",
     detail: "Westminster, London",
@@ -69,7 +66,6 @@ const registryTourists = [
   },
   {
     name: "Sarah Johnson",
-    did: "DID:0xj1k2l3",
     place: "Red Fort",
     city: "New Delhi, India",
     detail: "Netaji Subhash Marg, Lal Qila",
@@ -165,9 +161,6 @@ export function LandingPage() {
               <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
                 <MapPin className="h-3 w-3" /> Geo-Sensing
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-400/30 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-300">
-                <Lock className="h-3 w-3" /> Blockchain
-              </span>
             </div>
 
             <h1 className="text-balance text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-lg md:text-4xl lg:text-5xl">
@@ -227,16 +220,7 @@ export function LandingPage() {
         </p>
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Blockchain Digital IDs */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <Lock className="h-8 w-8 text-blue-600" />
-            <h3 className="mt-4 text-lg font-bold text-slate-900">Blockchain Digital IDs</h3>
-            <p className="text-sm font-medium text-blue-600">Tamper-proof identity verification</p>
-            <p className="mt-3 text-sm text-slate-600">
-              Secure, time-bound digital IDs containing KYC data, itinerary, and emergency
-              contacts stored on blockchain for immutable verification.
-            </p>
-          </div>
+
 
           {/* AI Anomaly Detection */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -306,7 +290,7 @@ export function LandingPage() {
               <span className="rounded bg-blue-200 px-1.5 py-0.5 font-semibold">Beta</span>{" "}
               <span className="rounded bg-blue-100 px-1.5 py-0.5">Coming Soon</span>
               <p className="mt-2 text-slate-700">
-                SOS alerts, fall detection, and blockchain identity on wearable.
+                SOS alerts and fall detection on wearable.
               </p>
             </div>
             <div className="mt-3 flex gap-4 text-xs text-slate-600">
@@ -324,16 +308,13 @@ export function LandingPage() {
             <h3 className="mt-4 text-lg font-bold">Auto e-FIR Generation</h3>
             <p className="text-sm text-slate-600">Automated incident reporting</p>
             <p className="mt-3 text-sm text-slate-600">
-              Automatic Electronic FIR generation for missing persons or emergencies with
-              blockchain audit trail.
+              Automatic Electronic FIR generation for missing persons or emergencies with secure audit trail.
             </p>
             <ul className="mt-3 space-y-1.5 text-xs">
               <li className="flex justify-between">
                 Report Generation <span className="rounded bg-amber-200 px-1.5">Automated</span>
               </li>
-              <li className="flex justify-between">
-                Blockchain Verified <span className="text-emerald-600">✓ Immutable</span>
-              </li>
+
               <li className="flex justify-between">
                 Authority Integration <span className="rounded bg-amber-200 px-1.5">Real-time</span>
               </li>
@@ -414,11 +395,10 @@ export function LandingPage() {
               <div className="absolute bottom-6 left-8 right-8 flex flex-wrap justify-center gap-6">
                 {registryTourists.slice(0, showAllLocs ? 4 : 2).map((t) => (
                   <div
-                    key={t.did}
+                    key={t.name}
                     className="max-w-[140px] rounded-lg bg-white/95 p-2 text-[10px] shadow-md backdrop-blur"
                   >
                     <p className="font-bold text-slate-900">{t.name}</p>
-                    <p className="text-slate-500">ID: {t.did}</p>
                     <p className="text-slate-500">{t.place}</p>
                     <span
                       className={`mt-1 inline-block rounded px-1 text-[9px] font-semibold ${statusStyle(t.status)}`}
@@ -444,12 +424,11 @@ export function LandingPage() {
             <div className="mt-4 space-y-2">
               {registryTourists.map((t) => (
                 <div
-                  key={t.did}
+                  key={t.name}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm shadow-sm"
                 >
                   <div>
                     <p className="font-semibold text-slate-900">{t.name}</p>
-                    <p className="text-xs text-slate-500">ID: {t.did}</p>
                     <p className="text-xs text-slate-600">{t.place} · {t.city}</p>
                   </div>
                   <div className="text-right">
@@ -519,7 +498,6 @@ export function LandingPage() {
           <div className="mt-12 grid gap-10 lg:grid-cols-2 lg:items-center">
             <div className="space-y-4">
               {[
-                ["Blockchain Security", "Tamper-proof digital IDs and immutable audit trails."],
                 ["AI-Powered Detection", "Real-time anomaly detection and predictive analytics."],
                 ["Geo-Fencing Technology", "Automated boundary monitoring and alert systems."],
                 ["IoT Integration", "Smart wearables for continuous health monitoring."],
@@ -588,7 +566,6 @@ export function LandingPage() {
                 <h3 className="font-bold text-slate-900">System Status</h3>
                 <ul className="mt-3 space-y-2 text-sm">
                   {[
-                    ["Blockchain Network", "Operational"],
                     ["AI Detection System", "Active"],
                     ["IoT Network", "Connected"],
                     ["Emergency Services", "Ready"],

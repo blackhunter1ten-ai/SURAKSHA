@@ -21,7 +21,6 @@ const nav = [
   { href: "/", label: "Home" },
   { href: "/solution", label: "Solution" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/blockchain", label: "Blockchain" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];

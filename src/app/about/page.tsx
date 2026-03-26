@@ -11,19 +11,13 @@ export default function AboutPage() {
         Revolutionizing Tourist Safety
       </h1>
       <p className="mx-auto mt-4 max-w-2xl text-center text-slate-600">
-        Our Smart Tourist Safety Monitoring stack protects visitors in remote and
-        high-risk areas with blockchain-backed identity, AI anomaly detection,
+        high-risk areas with AI anomaly detection,
         geo-fencing, and IoT-ready vitals.
       </p>
 
       <div className="mt-12 grid gap-10 lg:grid-cols-2 lg:items-center">
         <div className="space-y-4">
           {[
-            {
-              icon: Shield,
-              title: "Blockchain Security",
-              text: "Tamper-proof digital IDs and immutable audit trails.",
-            },
             {
               icon: Cpu,
               title: "AI-Powered Detection",
