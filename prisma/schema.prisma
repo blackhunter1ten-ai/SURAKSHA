@@ -43,6 +43,7 @@ model User {
   emergencies            EmergencyEvent[]
   location               UserLocation?
   firs                   FIR[]
+  threatZones            ThreatZone[]
 }
 
 model EmergencyEvent {
@@ -126,15 +127,38 @@ model UserLocation {
 
 // Threat score for a geographic area — auto-expires after 6 hours
 model ThreatZone {
-  id        String   @id @default(cuid())
-  lat       Float
-  lng       Float
-  location  String
-  score     Float
-  zone      String   // GREEN | YELLOW | ORANGE | RED
-  summary   String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  lat              Float
+  lng              Float
+  location         String
+  score            Float
+  zone             String   // GREEN | YELLOW | ORANGE | RED
+  summary          String
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  status           String   @default("PENDING") // PENDING, VERIFIED, REJECTED
+  reportedByUserId String?
+  reportedBy       User?    @relation(fields: [reportedByUserId], references: [id])
+  newsSource       String?  // The actual news headline that triggered this threat
 
   @@map("threat_zones")
+}
+
+// Geo-fence zones for tourist safety — circle or polygon
+model GeoFence {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // "circle" | "polygon"
+  centerLat   Float?   // For circle type
+  centerLng   Float?   // For circle type
+  radius      Float?   // For circle type (meters)
+  vertices    String?  // JSON string of [{lat, lng}] for polygon type
+  zone        String   @default("RED")  // RED | ORANGE | YELLOW
+  active      Boolean  @default(true)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("geo_fences")
 }

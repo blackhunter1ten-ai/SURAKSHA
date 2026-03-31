@@ -129,6 +129,59 @@ async function main() {
     });
   }
   }
+
+  // ── Seed demo Geo-Fences ──────────────────────────────────
+  const fenceCount = await prisma.geoFence.count();
+  if (fenceCount === 0) {
+    await prisma.geoFence.createMany({
+      data: [
+        {
+          name: "India Gate Restricted Perimeter",
+          type: "circle",
+          centerLat: 28.6129,
+          centerLng: 77.2295,
+          radius: 500,
+          zone: "RED",
+          active: true,
+          description: "High-security zone around India Gate memorial. Tourists must stay outside this perimeter after 10 PM.",
+        },
+        {
+          name: "Connaught Place Market Zone",
+          type: "circle",
+          centerLat: 28.6315,
+          centerLng: 77.2167,
+          radius: 800,
+          zone: "ORANGE",
+          active: true,
+          description: "Elevated pickpocketing risk in Connaught Place inner circle. Stay alert and watch belongings.",
+        },
+        {
+          name: "Red Fort Security Buffer",
+          type: "circle",
+          centerLat: 28.6562,
+          centerLng: 77.2410,
+          radius: 350,
+          zone: "YELLOW",
+          active: true,
+          description: "Security buffer around Red Fort. Photography restrictions apply after sunset.",
+        },
+        {
+          name: "Chandni Chowk Narrow Lanes",
+          type: "polygon",
+          vertices: JSON.stringify([
+            { lat: 28.6560, lng: 77.2280 },
+            { lat: 28.6580, lng: 77.2340 },
+            { lat: 28.6540, lng: 77.2360 },
+            { lat: 28.6520, lng: 77.2300 },
+          ]),
+          zone: "ORANGE",
+          active: true,
+          description: "Congested market area with very narrow lanes. Risk of getting lost. Keep GPS tracking on.",
+        },
+      ],
+    });
+    console.log("  ✅ Seeded 4 demo geo-fences");
+  }
 }
 
 main()

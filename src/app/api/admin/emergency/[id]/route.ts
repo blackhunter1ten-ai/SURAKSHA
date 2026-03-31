@@ -15,8 +15,20 @@ export async function PATCH(
     const emergency = await prisma.emergencyEvent.update({
       where: { id: params.id },
       data: { resolved: true },
-      select: { id: true, resolved: true },
+      select: { id: true, resolved: true, userId: true },
     });
+
+    // If this user has no other active emergencies, revert their status to SAFE
+    const pendingCount = await prisma.emergencyEvent.count({
+      where: { userId: emergency.userId, resolved: false },
+    });
+
+    if (pendingCount === 0) {
+      await prisma.user.update({
+        where: { id: emergency.userId },
+        data: { status: "SAFE" },
+      });
+    }
 
     return NextResponse.json({ emergency });
   } catch (error: any) {

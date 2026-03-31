@@ -31,24 +31,26 @@ export async function POST(req: Request) {
   const { lat, lng } = parsed.data;
   const now = new Date();
 
-  // ── 1. Cache check (~500 m radius, unexpired) ─────────────────────────────
-  const cached = await prisma.threatZone.findFirst({
+  // ── 1. Cache check: Look for an active VERIFIED threat first (~500 m) ──
+  const cachedVerified = await prisma.threatZone.findFirst({
     where: {
       lat:       { gte: lat - CACHE_RADIUS_DEG, lte: lat + CACHE_RADIUS_DEG },
       lng:       { gte: lng - CACHE_RADIUS_DEG, lte: lng + CACHE_RADIUS_DEG },
       expiresAt: { gt: now },
+      status:    "VERIFIED",
     },
     orderBy: { createdAt: "desc" },
   });
 
-  if (cached) {
+  if (cachedVerified) {
     return NextResponse.json({
-      score:     cached.score,
-      zone:      cached.zone,
-      location:  cached.location,
-      summary:   cached.summary,
-      expiresAt: cached.expiresAt,
+      score:     cachedVerified.score,
+      zone:      cachedVerified.zone,
+      location:  cachedVerified.location,
+      summary:   cachedVerified.summary,
+      expiresAt: cachedVerified.expiresAt,
       cached:    true,
+      markers:   [],
     });
   }
 
@@ -68,16 +70,43 @@ export async function POST(req: Request) {
   }
 
   // ── 3. AI + real API threat analysis ────────────────────────────────────
-  const { score, zone, summary } = await analyzeThreat(locationName);
+  const { score, zone, summary, markers } = await analyzeThreat(locationName, {
+    lat,
+    lng,
+  });
 
   // ── 4. Dynamic TTL based on threat score ─────────────────────────────────
   const ttlHours = scoreToTTLHours(score);
   const expiresAt = new Date(now.getTime() + ttlHours * 60 * 60 * 1000);
 
-  // ── 5. Persist to DB ──────────────────────────────────────────────────────
-  await prisma.threatZone.create({
-    data: { lat, lng, location: locationName, score, zone, summary, expiresAt },
-  });
+  // ── 5. Persist to DB with deduplication for PENDING status ────────────────
+  if ((zone === "RED" || zone === "ORANGE") && session.sub) {
+    const recentPending = await prisma.threatZone.findFirst({
+      where: {
+        lat: { gte: lat - CACHE_RADIUS_DEG, lte: lat + CACHE_RADIUS_DEG },
+        lng: { gte: lng - CACHE_RADIUS_DEG, lte: lng + CACHE_RADIUS_DEG },
+        expiresAt: { gt: now },
+        status: "PENDING",
+      },
+    });
+
+    if (!recentPending) {
+      await prisma.threatZone.create({
+        data: { 
+          lat, lng, location: locationName, score, zone, summary, 
+          status: "PENDING", reportedByUserId: session.sub, expiresAt 
+        },
+      });
+    }
+
+    // Return YELLOW safely for unverified threats
+    return NextResponse.json({
+      score: 50, zone: "YELLOW",
+      location: locationName,
+      summary: "Potential threat detected in this area. Sent to authorities for verification.",
+      expiresAt, ttlHours, cached: false, markers: [],
+    });
+  }
 
   console.log(`[threat-score] ${zone} (${score}) for "${locationName}" — expires in ${ttlHours}h`);
 
@@ -89,5 +118,6 @@ export async function POST(req: Request) {
     expiresAt,
     ttlHours,
     cached: false,
+    markers: markers ?? [],
   });
 }

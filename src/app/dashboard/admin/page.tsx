@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import {
   Activity,
@@ -14,12 +15,29 @@ import {
   FileText,
   Loader2,
   MapPin,
+  Plus,
+  Radar,
   Search,
   Shield,
+  Trash2,
   Users,
   X,
   LogOut,
+  Circle,
+  Hexagon,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
+import type { GeoFenceMapFence } from "@/components/maps/GeoFenceMap";
+
+const GeoFenceMap = dynamic(() => import("@/components/maps/GeoFenceMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[400px] bg-slate-50 dark:bg-[#0B0F19] rounded-xl border border-slate-200 dark:border-[#2A303C]">
+      <Loader2 className="h-6 w-6 animate-spin text-cyan-500" />
+    </div>
+  ),
+});
 
 /* ─── Types ─── */
 type Overview = {
@@ -82,14 +100,42 @@ type Analytics = {
   safetyScore: number;
 };
 
-type Tab = "overview" | "alerts" | "firs" | "analytics" | "tourists";
+type AdminThreat = {
+  id: string;
+  lat: number;
+  lng: number;
+  location: string;
+  score: number;
+  zone: string;
+  summary: string;
+  status: string;
+  createdAt: string;
+  newsSource: string | null;
+  reportedBy: { name: string; email: string; phone: string | null } | null;
+};
+
+type AdminGeoFence = {
+  id: string;
+  name: string;
+  type: string;
+  centerLat: number | null;
+  centerLng: number | null;
+  radius: number | null;
+  vertices: string | null;
+  zone: string;
+  active: boolean;
+  description: string | null;
+  createdAt: string;
+};
+
+type Tab = "overview" | "alerts" | "threats" | "firs" | "analytics" | "tourists" | "geofences";
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as Tab | null;
   const [tab, setTab] = useState<Tab>(
-    tabParam && ["overview", "alerts", "firs", "analytics", "tourists"].includes(tabParam)
+    tabParam && ["overview", "alerts", "threats", "firs", "analytics", "tourists", "geofences"].includes(tabParam)
       ? tabParam
       : "overview",
   );
@@ -97,11 +143,13 @@ export default function AdminDashboardPage() {
   const [tourists, setTourists] = useState<Tourist[]>([]);
   const [emergencies, setEmergencies] = useState<EmergencyEvent[]>([]);
   const [adminFirs, setAdminFirs] = useState<AdminFIR[]>([]);
+  const [adminThreats, setAdminThreats] = useState<AdminThreat[]>([]);
+  const [adminGeoFences, setAdminGeoFences] = useState<AdminGeoFence[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tabParam && ["overview", "alerts", "firs", "analytics", "tourists"].includes(tabParam)) {
+    if (tabParam && ["overview", "alerts", "threats", "firs", "analytics", "tourists", "geofences"].includes(tabParam)) {
       setTab(tabParam);
     }
   }, [tabParam]);
@@ -127,10 +175,20 @@ export default function AdminDashboardPage() {
         .then((r) => r.json())
         .then((d) => setAdminFirs(d.firs ?? []));
     }
+    if (tab === "threats" && adminThreats.length === 0) {
+      fetch("/api/admin/threats")
+        .then((r) => r.json())
+        .then((d) => setAdminThreats(d.threats ?? []));
+    }
     if (tab === "analytics" && !analytics) {
       fetch("/api/admin/analytics")
         .then((r) => r.json())
         .then((d) => { if (!d.error) setAnalytics(d); });
+    }
+    if (tab === "geofences" && adminGeoFences.length === 0) {
+      fetch("/api/admin/geofences")
+        .then((r) => r.json())
+        .then((d) => setAdminGeoFences(d.fences ?? []));
     }
   }, [tab]);
 
@@ -205,6 +263,8 @@ export default function AdminDashboardPage() {
         {([
           ["overview", "Command Center", Shield],
           ["alerts", "Active Beacons", AlertTriangle],
+          ["threats", "Threat Radar", MapPin],
+          ["geofences", "Geo-Fences", Radar],
           ["firs", "Incident Reports", FileText],
           ["analytics", "Deep Analytics", BarChart3],
           ["tourists", "Registry Matrix", Users],
@@ -238,6 +298,27 @@ export default function AdminDashboardPage() {
               setEmergencies((prev) => prev.map((e) => (e.id === id ? { ...e, resolved: true } : e)));
             });
         }} />}
+        {tab === "threats" && <ThreatsAdminTab threats={adminThreats} onStatusChange={(id, status) => {
+          fetch("/api/admin/threats", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, status }),
+          })
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.success) setAdminThreats((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+            });
+        }} onRemove={(id) => {
+          fetch("/api/admin/threats", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          })
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.success) setAdminThreats((prev) => prev.filter((t) => t.id !== id));
+            });
+        }} />}
         {tab === "firs" && <FIRsAdminTab firs={adminFirs} onStatusChange={(firId, status) => {
           fetch("/api/admin/firs", {
             method: "PATCH",
@@ -255,6 +336,11 @@ export default function AdminDashboardPage() {
         }} />}
         {tab === "analytics" && <AnalyticsTab data={analytics} />}
         {tab === "tourists" && <TouristRegistryTab tourists={tourists} />}
+        {tab === "geofences" && <GeoFencesAdminTab fences={adminGeoFences} onUpdate={() => {
+          fetch("/api/admin/geofences")
+            .then((r) => r.json())
+            .then((d) => setAdminGeoFences(d.fences ?? []));
+        }} />}
       </div>
     </div>
   );
@@ -756,6 +842,629 @@ function TouristRegistryTab({ tourists }: { tourists: Tourist[] }) {
 }
 
 /* ──────────────────────────────────────────────────────── */
+/*  THREATS RADAR TAB                                       */
+/* ──────────────────────────────────────────────────────── */
+function ThreatsAdminTab({
+  threats,
+  onStatusChange,
+  onRemove,
+}: {
+  threats: AdminThreat[];
+  onStatusChange: (id: string, status: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [filter, setFilter] = useState("PENDING");
+  const filtered = threats.filter((t) => filter === "ALL" || t.status === filter);
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-[#131B2B] p-3 rounded-xl border border-slate-200 border-zinc-800">
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-widest ml-2">THREAT RADAR QUEUE (VOL. {threats.length})</h2>
+        <div className="flex flex-wrap gap-1 bg-slate-950/80 p-1 rounded-lg border border-slate-100 border-zinc-800/50">
+          {["ALL", "PENDING", "VERIFIED", "REJECTED"].map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setFilter(s)}
+              className={`rounded-md px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold transition ${
+                filter === s
+                  ? "bg-cyan-500/20 text-cyan-500  border border-cyan-500/30"
+                  : "text-slate-400 hover:text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={MapPin} message="Radar Clear" hint="No threat zones match current filter." color="amber" />
+      ) : (
+        <div className="space-y-4">
+          {filtered.map((t) => (
+            <div
+              key={t.id}
+              className={`rounded-2xl border bg-white dark:bg-[#131B2B]/50 backdrop-blur p-6 hover:border-amber-500/30 transition shadow-lg group relative overflow-hidden ${
+                t.status === "PENDING" ? "border-amber-500/30" : "border-slate-100 border-zinc-800/50"
+              }`}
+            >
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 relative z-10">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 flex-wrap mb-3">
+                    <p className="font-mono text-sm font-bold uppercase text-amber-500 ">AI RISK SCORE: {t.score}</p>
+                    <StatusBadge status={t.status} />
+                    <span className={`rounded bg-slate-800/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest border border-slate-200 border-zinc-800 ${t.zone === "RED" ? "text-red-500" : "text-amber-500"}`}>
+                      ZONE: {t.zone}
+                    </span>
+                  </div>
+                  {t.reportedBy ? (
+                    <div>
+                      <p className="text-lg font-bold text-slate-900 dark:text-white tracking-wide">{t.reportedBy.name}</p>
+                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 font-mono items-center">
+                        <span>{t.reportedBy.email}</span>
+                        {t.reportedBy.phone && (
+                          <><span className="text-slate-700">|</span><span>{t.reportedBy.phone}</span></>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                   <p className="text-sm font-bold text-slate-500 tracking-wide">Anonymous Reporter</p> 
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 font-mono items-center">
+                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-cyan-500" /> {t.location} [{t.lat.toFixed(5)}, {t.lng.toFixed(5)}]</span>
+                    <span className="text-slate-700">|</span>
+                    <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-cyan-500" /> Reported {new Date(t.createdAt).toLocaleString()}</span>
+                  </div>
+                  {/* News headline */}
+                  {t.newsSource && (
+                    <div className="mt-3 flex items-start gap-2 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                      <span className="text-amber-500 text-sm mt-0.5">📰</span>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-1">News Source</p>
+                        <p className="text-xs text-slate-300 leading-relaxed">{t.newsSource}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-4 p-4 rounded-xl border border-slate-100 border-zinc-800/50 bg-slate-950/60 shadow-inner">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic border-l-2 border-amber-500/50 pl-3">"{t.summary}"</p>
+                  </div>
+                </div>
+                
+                <div className="lg:min-w-64 bg-slate-950/80 border border-slate-200 border-zinc-800 rounded-xl p-4 flex flex-col gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-100 border-zinc-800/50 pb-2">Authority Control</span>
+                  {t.status === "PENDING" ? (
+                    <div className="flex flex-col gap-2 mt-2">
+                      <button
+                        onClick={() => onStatusChange(t.id, "VERIFIED")}
+                        className="w-full rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-xs font-bold uppercase text-emerald-500 hover:bg-emerald-500 hover:text-white transition"
+                      >
+                        ✅ Verify Threat
+                      </button>
+                      <button
+                        onClick={() => onStatusChange(t.id, "REJECTED")}
+                        className="w-full rounded-lg bg-slate-800/50 border border-slate-700 px-3 py-2 text-xs font-bold uppercase text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                      >
+                        ❌ Reject (False Alarm)
+                      </button>
+                    </div>
+                  ) : t.status === "VERIFIED" ? (
+                    <div className="flex flex-col gap-2 mt-2">
+                      <div className="text-xs font-bold text-center bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 py-2 rounded-lg">
+                        🟢 THREAT ACTIVE ON MAP
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (confirm("Are you sure? This will REMOVE the threat from the user map immediately.")) {
+                            onRemove(t.id);
+                          }
+                        }}
+                        className="w-full rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs font-bold uppercase text-red-400 hover:bg-red-500 hover:text-white transition"
+                      >
+                        🗑️ Threat Over — Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 mt-2">
+                      <div className="text-xs font-bold text-center bg-slate-800/80 text-slate-400 border border-slate-700 py-2 rounded-lg">
+                        THREAT REJECTED
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (confirm("Permanently delete this rejected threat from the database?")) {
+                            onRemove(t.id);
+                          }
+                        }}
+                        className="w-full rounded-lg bg-slate-700/30 border border-slate-700 px-3 py-2 text-xs font-bold uppercase text-slate-500 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 transition"
+                      >
+                        🗑️ Delete Record
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────── */
+/*  GEO-FENCES ADMIN TAB                                    */
+/* ──────────────────────────────────────────────────────── */
+function GeoFencesAdminTab({
+  fences,
+  onUpdate,
+}: {
+  fences: AdminGeoFence[];
+  onUpdate: () => void;
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  // Create form state
+  const [fenceType, setFenceType] = useState<"circle" | "polygon">("circle");
+  const [fenceName, setFenceName] = useState("");
+  const [fenceZone, setFenceZone] = useState("RED");
+  const [fenceDesc, setFenceDesc] = useState("");
+  const [centerLat, setCenterLat] = useState("");
+  const [centerLng, setCenterLng] = useState("");
+  const [radius, setRadius] = useState("500");
+  const [polyVertices, setPolyVertices] = useState<{ lat: string; lng: string }[]>([
+    { lat: "", lng: "" },
+    { lat: "", lng: "" },
+    { lat: "", lng: "" },
+  ]);
+
+  const activeFences = fences.filter((f) => f.active).length;
+  const redFences = fences.filter((f) => f.zone === "RED").length;
+  const orangeFences = fences.filter((f) => f.zone === "ORANGE").length;
+  const yellowFences = fences.filter((f) => f.zone === "YELLOW").length;
+
+  const resetForm = () => {
+    setFenceName("");
+    setFenceZone("RED");
+    setFenceDesc("");
+    setCenterLat("");
+    setCenterLng("");
+    setRadius("500");
+    setPolyVertices([
+      { lat: "", lng: "" },
+      { lat: "", lng: "" },
+      { lat: "", lng: "" },
+    ]);
+    setFenceType("circle");
+  };
+
+  const handleCreate = async () => {
+    if (!fenceName.trim()) return;
+    setCreating(true);
+
+    const body: Record<string, unknown> = {
+      name: fenceName.trim(),
+      type: fenceType,
+      zone: fenceZone,
+      description: fenceDesc.trim() || null,
+    };
+
+    if (fenceType === "circle") {
+      body.centerLat = parseFloat(centerLat);
+      body.centerLng = parseFloat(centerLng);
+      body.radius = parseFloat(radius);
+    } else {
+      const verts = polyVertices
+        .filter((v) => v.lat && v.lng)
+        .map((v) => ({ lat: parseFloat(v.lat), lng: parseFloat(v.lng) }));
+      body.vertices = JSON.stringify(verts);
+    }
+
+    try {
+      const res = await fetch("/api/admin/geofences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        resetForm();
+        setShowCreate(false);
+        onUpdate();
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const toggleFence = async (id: string, active: boolean) => {
+    await fetch("/api/admin/geofences", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, active: !active }),
+    });
+    onUpdate();
+  };
+
+  const deleteFence = async (id: string) => {
+    if (!confirm("Permanently delete this geo-fence?")) return;
+    await fetch("/api/admin/geofences", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    onUpdate();
+  };
+
+  const handleMapClick = (latLng: { lat: number; lng: number }) => {
+    if (showCreate && fenceType === "circle") {
+      setCenterLat(latLng.lat.toFixed(6));
+      setCenterLng(latLng.lng.toFixed(6));
+    }
+  };
+
+  // Convert fences to map-displayable format
+  const mapFences: GeoFenceMapFence[] = fences.map((f) => ({
+    id: f.id,
+    type: f.type as "circle" | "polygon",
+    centerLat: f.centerLat,
+    centerLng: f.centerLng,
+    radius: f.radius,
+    vertices: f.vertices,
+    zone: f.zone,
+    name: f.name,
+    active: f.active,
+  }));
+
+  return (
+    <div className="space-y-6">
+      {/* Stat Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={Radar} title="Total Geo-Fences" value={String(fences.length)} color="blue" />
+        <StatCard icon={Shield} title="Active Fences" value={String(activeFences)} color="emerald" />
+        <StatCard icon={AlertTriangle} title="Red Zones" value={String(redFences)} color="red" />
+        <StatCard icon={MapPin} title="Monitored Areas" value={String(orangeFences + yellowFences)} color="amber" />
+      </div>
+
+      {/* Map Preview */}
+      <div className="rounded-2xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-6 relative overflow-hidden">
+        <div className="absolute top-[-50%] left-[-20%] w-[150%] h-[150%] bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.05),transparent_70%)] pointer-events-none" />
+        <div className="flex items-center justify-between mb-4 relative z-10">
+          <h3 className="flex items-center gap-2 text-sm font-bold tracking-widest text-cyan-500">
+            <Radar className="h-4 w-4" />
+            GEO-FENCE MAP OVERVIEW
+          </h3>
+          {showCreate && fenceType === "circle" && (
+            <span className="text-xs text-amber-400 font-mono animate-pulse">
+              ← Click map to set fence center
+            </span>
+          )}
+        </div>
+        <div className="relative z-10">
+          <GeoFenceMap fences={mapFences} height="380px" onMapClick={handleMapClick} />
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-[#131B2B] p-3 rounded-xl border border-slate-200 dark:border-[#2A303C]">
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-widest ml-2">
+          GEO-FENCE DIRECTORY (VOL. {fences.length})
+        </h2>
+        <button
+          type="button"
+          onClick={() => { setShowCreate(!showCreate); if (showCreate) resetForm(); }}
+          className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-widest transition border ${
+            showCreate
+              ? "bg-slate-800/50 text-slate-400 border-slate-700 hover:bg-slate-800"
+              : "bg-cyan-500/10 text-cyan-500 border-cyan-500/30 hover:bg-cyan-500 hover:text-white"
+          }`}
+        >
+          {showCreate ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {showCreate ? "Cancel" : "Create Geo-Fence"}
+        </button>
+      </div>
+
+      {/* Create Modal */}
+      {showCreate && (
+        <div className="rounded-2xl border border-cyan-500/30 bg-white dark:bg-[#131B2B] p-6 relative overflow-hidden animate-in slide-in-from-top-2 duration-300">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500 to-blue-600" />
+          <h3 className="text-sm font-bold tracking-widest uppercase text-cyan-500 mb-6 flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            CREATE NEW GEO-FENCE
+          </h3>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Left column: basic info */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1 block">Fence Name</label>
+                <input
+                  type="text"
+                  value={fenceName}
+                  onChange={(e) => setFenceName(e.target.value)}
+                  placeholder="e.g. India Gate Restricted Area"
+                  className="w-full rounded-xl border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1 block">Type</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFenceType("circle")}
+                      className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold uppercase tracking-widest border transition ${
+                        fenceType === "circle"
+                          ? "bg-cyan-500/10 text-cyan-500 border-cyan-500/30"
+                          : "bg-slate-50 dark:bg-[#0B0F19] text-slate-500 dark:text-slate-400 border-slate-300 dark:border-[#2A303C] hover:border-cyan-500/30"
+                      }`}
+                    >
+                      <Circle className="h-3.5 w-3.5" />
+                      Circle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFenceType("polygon")}
+                      className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold uppercase tracking-widest border transition ${
+                        fenceType === "polygon"
+                          ? "bg-cyan-500/10 text-cyan-500 border-cyan-500/30"
+                          : "bg-slate-50 dark:bg-[#0B0F19] text-slate-500 dark:text-slate-400 border-slate-300 dark:border-[#2A303C] hover:border-cyan-500/30"
+                      }`}
+                    >
+                      <Hexagon className="h-3.5 w-3.5" />
+                      Polygon
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1 block">Zone</label>
+                  <select
+                    value={fenceZone}
+                    onChange={(e) => setFenceZone(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-3 py-2.5 text-sm font-bold text-slate-900 dark:text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 appearance-none"
+                  >
+                    <option value="RED">🔴 RED — High Risk</option>
+                    <option value="ORANGE">🟠 ORANGE — Elevated</option>
+                    <option value="YELLOW">🟡 YELLOW — Caution</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1 block">Description (Optional)</label>
+                <textarea
+                  value={fenceDesc}
+                  onChange={(e) => setFenceDesc(e.target.value)}
+                  placeholder="Describe the restriction or danger..."
+                  rows={2}
+                  className="w-full rounded-xl border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 font-mono resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Right column: coordinates */}
+            <div className="space-y-4">
+              {fenceType === "circle" ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1 block">Center Latitude</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={centerLat}
+                        onChange={(e) => setCenterLat(e.target.value)}
+                        placeholder="28.612870"
+                        className="w-full rounded-xl border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1 block">Center Longitude</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={centerLng}
+                        onChange={(e) => setCenterLng(e.target.value)}
+                        placeholder="77.229530"
+                        className="w-full rounded-xl border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1 block">Radius (meters)</label>
+                    <input
+                      type="number"
+                      value={radius}
+                      onChange={(e) => setRadius(e.target.value)}
+                      placeholder="500"
+                      min="1"
+                      max="50000"
+                      className="w-full rounded-xl border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 font-mono"
+                    />
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 bg-cyan-500/5 border border-cyan-500/20 rounded-lg p-3">
+                    <p className="font-bold text-cyan-500 mb-1">💡 TIP</p>
+                    <p>Click on the map above to auto-fill the center coordinates. Then adjust the radius.</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1 block">
+                    Polygon Vertices ({polyVertices.length} points)
+                  </label>
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {polyVertices.map((v, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 w-5 shrink-0">{i + 1}</span>
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="Latitude"
+                          value={v.lat}
+                          onChange={(e) => {
+                            const updated = [...polyVertices];
+                            updated[i] = { ...v, lat: e.target.value };
+                            setPolyVertices(updated);
+                          }}
+                          className="flex-1 rounded-lg border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-cyan-400 font-mono"
+                        />
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="Longitude"
+                          value={v.lng}
+                          onChange={(e) => {
+                            const updated = [...polyVertices];
+                            updated[i] = { ...v, lng: e.target.value };
+                            setPolyVertices(updated);
+                          }}
+                          className="flex-1 rounded-lg border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-cyan-400 font-mono"
+                        />
+                        {polyVertices.length > 3 && (
+                          <button
+                            type="button"
+                            onClick={() => setPolyVertices(polyVertices.filter((_, j) => j !== i))}
+                            className="text-red-400 hover:text-red-500 p-1"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPolyVertices([...polyVertices, { lat: "", lng: "" }])}
+                    className="text-xs font-bold text-cyan-500 hover:text-cyan-400 transition flex items-center gap-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Vertex
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Submit */}
+          <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 dark:border-[#2A303C] pt-4">
+            <button
+              type="button"
+              onClick={() => { setShowCreate(false); resetForm(); }}
+              className="rounded-xl border border-slate-300 dark:border-[#2A303C] px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#0B0F19] transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={creating || !fenceName.trim()}
+              className="rounded-xl bg-cyan-500 border border-cyan-400 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-cyan-400 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {creating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Deploy Geo-Fence
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fence List */}
+      {fences.length === 0 ? (
+        <EmptyState icon={Radar} message="No Geo-Fences Deployed" hint="Create your first geo-fence to start monitoring restricted areas." color="cyan" />
+      ) : (
+        <div className="space-y-4">
+          {fences.map((f) => (
+            <div
+              key={f.id}
+              className={`rounded-2xl border bg-white dark:bg-[#131B2B]/50 backdrop-blur p-5 transition shadow-lg group relative overflow-hidden ${
+                !f.active
+                  ? "border-slate-300 dark:border-[#2A303C] opacity-60"
+                  : f.zone === "RED"
+                    ? "border-red-500/30"
+                    : f.zone === "ORANGE"
+                      ? "border-orange-500/30"
+                      : "border-yellow-500/30"
+              }`}
+            >
+              {f.active && (
+                <div
+                  className={`absolute top-0 right-0 w-48 h-48 rounded-full blur-[80px] pointer-events-none ${
+                    f.zone === "RED" ? "bg-red-500/10" : f.zone === "ORANGE" ? "bg-orange-500/10" : "bg-yellow-500/10"
+                  }`}
+                />
+              )}
+
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-xl border shrink-0 ${
+                      f.zone === "RED"
+                        ? "bg-red-500/10 text-red-500 border-red-500/30"
+                        : f.zone === "ORANGE"
+                          ? "bg-orange-500/10 text-orange-500 border-orange-500/30"
+                          : "bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
+                    }`}
+                  >
+                    {f.type === "circle" ? <Circle className="h-5 w-5" /> : <Hexagon className="h-5 w-5" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <p className="text-base font-bold text-slate-900 dark:text-white tracking-wide truncate">{f.name}</p>
+                      <StatusBadge status={f.active ? f.zone : "INACTIVE"} />
+                      <span className="rounded bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#2A303C]">
+                        {f.type === "circle" ? `⊙ ${f.radius}m` : `⬡ ${(() => { try { return JSON.parse(f.vertices || "[]").length; } catch { return 0; } })()} pts`}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 font-mono">
+                      {f.type === "circle" && f.centerLat && f.centerLng && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-cyan-500" />
+                          [{f.centerLat.toFixed(5)}, {f.centerLng.toFixed(5)}]
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-cyan-500" />
+                        {new Date(f.createdAt).toLocaleDateString()}
+                      </span>
+                      {f.description && (
+                        <span className="text-slate-400 italic truncate max-w-xs">
+                          {f.description}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => toggleFence(f.id, f.active)}
+                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest border transition ${
+                      f.active
+                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500 hover:text-white"
+                        : "bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-[#2A303C] hover:bg-cyan-500/10 hover:text-cyan-500 hover:border-cyan-500/30"
+                    }`}
+                  >
+                    {f.active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+                    {f.active ? "Active" : "Disabled"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteFence(f.id)}
+                    className="rounded-xl bg-red-500/10 border border-red-500/30 p-2 text-red-400 hover:bg-red-500 hover:text-white transition"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────── */
 /*  SHARED COMPONENTS                                       */
 /* ──────────────────────────────────────────────────────── */
 
@@ -860,6 +1569,11 @@ function StatusBadge({ status }: { status: string }) {
     CLOSED: "bg-slate-800/80 text-slate-400 border-slate-700",
     ACTIVE: "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse",
     VERIFIED: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+    RED: "bg-red-500/10 text-red-500 border-red-500/30",
+    ORANGE: "bg-orange-500/10 text-orange-500 border-orange-500/30",
+    YELLOW: "bg-yellow-500/10 text-yellow-500 border-yellow-500/30",
+    REJECTED: "bg-slate-800/80 text-slate-400 border-slate-700",
+    INACTIVE: "bg-slate-800/80 text-slate-400 border-slate-700",
   };
 
   return (
