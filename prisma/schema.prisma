@@ -45,18 +45,21 @@ model User {
   location               UserLocation?
   firs                   FIR[]
   threatZones            ThreatZone[]
+  notifications          Notification[]   @relation("notifications")
 }
 
 model EmergencyEvent {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lat       Float?
-  lng       Float?
-  accuracy  Float?
-  stepsJson String   @default("[\"pending\",\"pending\",\"pending\",\"pending\"]")
-  resolved  Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lat                 Float?
+  lng                 Float?
+  accuracy            Float?
+  address             String?  // Reverse-geocoded address (best-effort)
+  locationUnavailable Boolean  @default(false)
+  stepsJson           String   @default("[\"pending\",\"pending\",\"pending\",\"pending\"]")
+  resolved            Boolean  @default(false)
+  createdAt           DateTime @default(now())
 }
 
 model ContactMessage {
@@ -162,4 +165,19 @@ model GeoFence {
   updatedAt   DateTime @updatedAt
 
   @@map("geo_fences")
+}
+
+// In-app notification for SOS alerts and system messages
+model Notification {
+  id          String   @id @default(cuid())
+  recipientId String
+  type        String   // "SOS_ALERT" | "SYSTEM"
+  title       String
+  body        String
+  data        String?  // JSON string with extra data (map link, coords, etc.)
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  recipient   User     @relation("notifications", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
 }

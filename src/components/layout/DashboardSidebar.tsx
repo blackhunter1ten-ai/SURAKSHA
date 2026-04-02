@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   AlertTriangle,
   BarChart3,
+  Bell,
   FileText,
   Home,
   LogOut,
@@ -16,6 +17,8 @@ import {
   User,
   Users,
   X,
+  ExternalLink,
+  CheckCircle2,
 } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: React.ElementType };
@@ -51,6 +54,18 @@ export function DashboardSidebar({
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    type: string;
+    title: string;
+    body: string;
+    data: string | null;
+    read: boolean;
+    createdAt: string;
+  }>>([]);
+  const notifRef = useRef<HTMLDivElement>(null);
   const items = role === "ADMIN" ? ADMIN_NAV : USER_NAV;
 
   const activeBg = "bg-white dark:bg-[#131B2B]";
@@ -74,6 +89,48 @@ export function DashboardSidebar({
     return false;
   };
 
+  // Poll for notifications every 10 seconds
+  useEffect(() => {
+    let mounted = true;
+    async function fetchNotifs() {
+      try {
+        const res = await fetch("/api/notifications");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (mounted) {
+          setUnreadCount(data.unreadCount ?? 0);
+          setNotifications(data.notifications ?? []);
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 10000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+
+  // Close notif panel on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function markAllRead() {
+    await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAllRead: true }),
+    });
+    setUnreadCount(0);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }
+
   const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-[#0B0F19] border-r border-slate-200 dark:border-[#2A303C]">
       {/* Logo */}
@@ -88,6 +145,99 @@ export function DashboardSidebar({
               {role === "ADMIN" ? "Admin Panel" : "User Workspace"}
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Notification Bell */}
+      <div className="px-4 py-3 border-b border-slate-200 dark:border-[#2A303C]" ref={notifRef}>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setNotifOpen(!notifOpen)}
+            className="flex items-center gap-3 w-full rounded-xl px-4 py-3 text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-[#131B2B] hover:text-emerald-600 dark:hover:text-emerald-400 transition border border-transparent hover:border-slate-200 dark:hover:border-[#2A303C] hover:shadow-sm"
+          >
+            <div className="relative">
+              <Bell className={`h-4 w-4 ${unreadCount > 0 ? 'text-red-500' : ''}`} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white animate-notification-bounce">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </div>
+            <span>Notifications</span>
+            {unreadCount > 0 && (
+              <span className="ml-auto rounded-md bg-red-500/10 border border-red-500/30 px-2 py-0.5 text-[10px] font-bold text-red-500">
+                {unreadCount} new
+              </span>
+            )}
+          </button>
+
+          {/* Notification Dropdown */}
+          {notifOpen && (
+            <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-[#2A303C]">
+                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-widest">Notifications</span>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllRead}
+                    className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider hover:text-emerald-400 transition"
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center">
+                    <Bell className="h-6 w-6 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                    <p className="text-xs text-slate-400 dark:text-slate-500">No notifications yet</p>
+                  </div>
+                ) : (
+                  notifications.slice(0, 10).map((n) => {
+                    let parsedData: Record<string, unknown> = {};
+                    try { if (n.data) parsedData = JSON.parse(n.data); } catch { /* ignore */ }
+                    const mapsLink = parsedData.mapsLink as string | undefined;
+                    return (
+                      <div
+                        key={n.id}
+                        className={`px-4 py-3 border-b border-slate-200 dark:border-[#2A303C] last:border-0 transition hover:bg-slate-50 dark:hover:bg-[#0B0F19] ${
+                          !n.read ? 'bg-red-50/50 dark:bg-red-900/10' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${n.type === 'SOS_ALERT' ? 'bg-red-500/10 border border-red-500/20' : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-[#2A303C]'}`}>
+                            {n.type === 'SOS_ALERT' ? (
+                              <Siren className="h-4 w-4 text-red-500" />
+                            ) : (
+                              <Bell className="h-4 w-4 text-slate-400" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-900 dark:text-white">{n.title}</p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed line-clamp-2">{n.body}</p>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                                {new Date(n.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                              </span>
+                              {mapsLink && (
+                                <a href={mapsLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-red-500 hover:text-red-400">
+                                  <ExternalLink className="h-3 w-3" /> Map
+                                </a>
+                              )}
+                              {!n.read && (
+                                <span className="ml-auto h-2 w-2 rounded-full bg-red-500 animate-breathe" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
