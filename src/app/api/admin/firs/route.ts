@@ -15,18 +15,22 @@ export async function GET() {
         id: true,
         firNumber: true,
         complainantName: true,
-        complainantAddress: true,
         complainantContact: true,
         incidentType: true,
         incidentDateTime: true,
         location: true,
         description: true,
         accusedDetails: true,
+        evidenceUrls: true,
+        evidenceNotes: true,
+        severity: true,
         status: true,
+        adminNotes: true,
+        rejectionReason: true,
         createdAt: true,
         verifiedAt: true,
         user: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, phone: true },
         },
       },
     });
@@ -35,7 +39,7 @@ export async function GET() {
   } catch (error: any) {
     console.error("ADMIN FIRS GET ERROR:", error);
     return NextResponse.json(
-      { error: "Failed to fetch FIRs" },
+      { error: "Failed to fetch incident reports" },
       { status: 500 },
     );
   }
@@ -48,8 +52,10 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const { firId, status } = await request.json();
-    const VALID = ["PENDING", "INVESTIGATING", "RESOLVED", "CLOSED"];
+    const body = await request.json();
+    const { firId, status, adminNotes, rejectionReason } = body;
+    const VALID = ["PENDING", "APPROVED", "REJECTED", "INVESTIGATING", "RESOLVED", "CLOSED"];
+    
     if (!firId || !status || !VALID.includes(status)) {
       return NextResponse.json(
         { error: "Invalid firId or status" },
@@ -57,17 +63,76 @@ export async function PATCH(request: Request) {
       );
     }
 
+    // Build update data
+    const updateData: Record<string, unknown> = { status };
+    
+    if (adminNotes !== undefined) {
+      updateData.adminNotes = adminNotes;
+    }
+    
+    if (status === "REJECTED" && rejectionReason) {
+      updateData.rejectionReason = rejectionReason;
+    }
+
+    if (status === "APPROVED") {
+      updateData.verifiedAt = new Date();
+    }
+
     const fir = await prisma.fIR.update({
       where: { id: firId },
-      data: { status },
-      select: { id: true, firNumber: true, status: true },
+      data: updateData,
+      select: { id: true, firNumber: true, status: true, userId: true, complainantName: true, incidentType: true },
+    });
+
+    // ── Create Notification for the user ──────────────────────
+    const notificationTitle = 
+      status === "APPROVED" ? "✅ Report Approved" :
+      status === "REJECTED" ? "❌ Report Needs Attention" :
+      status === "INVESTIGATING" ? "🔍 Report Under Investigation" :
+      status === "RESOLVED" ? "✅ Report Resolved" :
+      status === "CLOSED" ? "📁 Report Closed" :
+      "📋 Report Status Updated";
+
+    const notificationBody =
+      status === "APPROVED"
+        ? `Your incident report ${fir.firNumber} has been verified and approved by authorities.`
+        : status === "REJECTED"
+          ? `Your incident report ${fir.firNumber} needs additional information. ${rejectionReason ? `Reason: ${rejectionReason}` : "Please contact support."}`
+          : status === "INVESTIGATING"
+            ? `Your incident report ${fir.firNumber} is now being actively investigated.`
+            : status === "RESOLVED"
+              ? `Your incident report ${fir.firNumber} has been resolved.`
+              : `Your incident report ${fir.firNumber} status has been updated to ${status}.`;
+
+    await prisma.notification.create({
+      data: {
+        recipientId: fir.userId,
+        type: "SYSTEM",
+        title: notificationTitle,
+        body: notificationBody,
+        data: JSON.stringify({
+          firNumber: fir.firNumber,
+          firId: fir.id,
+          newStatus: status,
+          adminNotes: adminNotes || null,
+        }),
+      },
+    });
+
+    // ── Log system activity ───────────────────────────────────
+    await prisma.systemActivity.create({
+      data: {
+        message: `Incident report ${fir.firNumber} ${status.toLowerCase()}`,
+        kind: status === "REJECTED" ? "warning" : "success",
+        detail: `${fir.incidentType} — ${fir.complainantName}${adminNotes ? ` | Admin: ${adminNotes}` : ""}`,
+      },
     });
 
     return NextResponse.json({ fir });
   } catch (error: any) {
     console.error("ADMIN FIR UPDATE ERROR:", error);
     return NextResponse.json(
-      { error: "Failed to update FIR" },
+      { error: "Failed to update incident report" },
       { status: 500 },
     );
   }

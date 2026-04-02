@@ -98,6 +98,7 @@ export async function POST(req: Request) {
         emergencyContactRelation,
         citizenship,
         aadhaarNumber,
+        kycStatus: "Complete",
         emailVerified: false,
       },
     });

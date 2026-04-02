@@ -206,7 +206,7 @@ export default function UserDashboardPage() {
       <div className="flex flex-wrap gap-1 border-b border-slate-200 dark:border-[#2A303C] mb-8 pb-1">
         {([
           ["overview", "Overview", Shield],
-          ["firs", "My FIRs", FileText],
+          ["firs", "My Reports", FileText],
           ["emergencies", "Emergency History", Siren],
         ] as const).map(([k, label, Icon]) => (
           <button
@@ -350,8 +350,8 @@ function OverviewTab({ profile, stats }: { profile: Profile | null; stats: Stats
         <ActionCard
           href="/dashboard/user/fir"
           icon={FileText}
-          title="File E-FIR"
-          description="Lodge official report"
+          title="Incident Report"
+          description="Report safety incidents"
           color="amber"
         />
         <ActionCard
@@ -380,13 +380,13 @@ function FIRsTab({ firs }: { firs: FIR[] }) {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide">Digital FIR Archives</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide">Incident Report Archives</h2>
         <Link
           href="/dashboard/user/fir"
           className="inline-flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-5 py-2.5 text-sm font-semibold text-amber-500 hover:bg-amber-500/20 hover:border-amber-400 transition hover: "
         >
           <FileText className="h-4 w-4" />
-          Lodge New Report
+          File New Report
         </Link>
       </div>
 
@@ -884,6 +884,8 @@ function StatusBadge({ status }: { status: string }) {
     CLOSED: "bg-slate-700/50 text-slate-300 border-slate-200 dark:border-[#2A303C]/50",
     ACTIVE: "bg-red-500/10 text-red-500 border-red-500/30 ",
     VERIFIED: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+    APPROVED: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+    REJECTED: "bg-red-500/10 text-red-400 border-red-500/30",
   };
 
   return (

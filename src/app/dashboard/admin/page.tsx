@@ -75,14 +75,21 @@ type AdminFIR = {
   id: string;
   firNumber: string;
   complainantName: string;
+  complainantContact: string | null;
   incidentType: string;
   incidentDateTime: string;
   location: string;
   description: string;
+  accusedDetails: string | null;
+  evidenceUrls: string | null;
+  evidenceNotes: string | null;
+  severity: string;
   status: string;
+  adminNotes: string | null;
+  rejectionReason: string | null;
   createdAt: string;
   verifiedAt: string | null;
-  user: { id: string; name: string; email: string };
+  user: { id: string; name: string; email: string; phone: string | null };
 };
 
 type Analytics = {
@@ -319,17 +326,17 @@ export default function AdminDashboardPage() {
               if (d.success) setAdminThreats((prev) => prev.filter((t) => t.id !== id));
             });
         }} />}
-        {tab === "firs" && <FIRsAdminTab firs={adminFirs} onStatusChange={(firId, status) => {
+        {tab === "firs" && <FIRsAdminTab firs={adminFirs} onStatusChange={(firId, status, adminNotes, rejectionReason) => {
           fetch("/api/admin/firs", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ firId, status }),
+            body: JSON.stringify({ firId, status, adminNotes, rejectionReason }),
           })
             .then((r) => r.json())
             .then((d) => {
               if (d.fir) {
                 setAdminFirs((prev) =>
-                  prev.map((f) => (f.id === firId ? { ...f, status } : f)),
+                  prev.map((f) => (f.id === firId ? { ...f, status, adminNotes: adminNotes || f.adminNotes, rejectionReason: rejectionReason || f.rejectionReason } : f)),
                 );
               }
             });
@@ -521,32 +528,52 @@ function AlertsTab({
 }
 
 /* ──────────────────────────────────────────────────────── */
-/*  FIR REPORTS TAB                                         */
+/*  INCIDENT REPORTS TAB                                    */
 /* ──────────────────────────────────────────────────────── */
 function FIRsAdminTab({
   firs,
   onStatusChange,
 }: {
   firs: AdminFIR[];
-  onStatusChange: (firId: string, status: string) => void;
+  onStatusChange: (firId: string, status: string, adminNotes?: string, rejectionReason?: string) => void;
 }) {
   const [filter, setFilter] = useState("ALL");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [adminNotesMap, setAdminNotesMap] = useState<Record<string, string>>({});
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const filtered = firs.filter((f) => filter === "ALL" || f.status === filter);
+
+  const SEVERITY_COLORS: Record<string, string> = {
+    CRITICAL: "bg-red-500/10 text-red-500 border-red-500/30",
+    HIGH: "bg-orange-500/10 text-orange-500 border-orange-500/30",
+    MEDIUM: "bg-amber-500/10 text-amber-500 border-amber-500/30",
+    LOW: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+  };
+
+  function parseEvidence(urls: string | null): string[] {
+    if (!urls) return [];
+    try { return JSON.parse(urls); } catch { return []; }
+  }
+
+  function isImage(url: string) {
+    return /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(url);
+  }
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-[#131B2B] p-3 rounded-xl border border-slate-200 border-zinc-800">
-        <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-widest ml-2">FIR DIRECTORY (VOL. {firs.length})</h2>
-        <div className="flex flex-wrap gap-1 bg-slate-950/80 p-1 rounded-lg border border-slate-100 border-zinc-800/50">
-          {["ALL", "PENDING", "INVESTIGATING", "RESOLVED", "CLOSED"].map((s) => (
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-[#131B2B] p-3 rounded-xl border border-slate-200 dark:border-[#2A303C]">
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-widest ml-2">INCIDENT REPORT DIRECTORY (VOL. {firs.length})</h2>
+        <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-950/80 p-1 rounded-lg border border-slate-200 dark:border-[#2A303C]">
+          {["ALL", "PENDING", "APPROVED", "REJECTED", "INVESTIGATING", "RESOLVED", "CLOSED"].map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => setFilter(s)}
               className={`rounded-md px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold transition ${
                 filter === s
-                  ? "bg-cyan-500/20 text-cyan-500  border border-cyan-500/30"
-                  : "text-slate-400 hover:text-slate-300 hover:bg-slate-800"
+                  ? "bg-cyan-500/20 text-cyan-500 border border-cyan-500/30"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
               }`}
             >
               {s}
@@ -555,58 +582,273 @@ function FIRsAdminTab({
         </div>
       </div>
 
-      {filtered.length === 0 ? (
-        <EmptyState icon={FileText} message="Repository Empty" hint="Authorized incident logs will sync here." color="amber" />
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((fir) => (
-            <div
-              key={fir.id}
-              className="rounded-2xl border border-slate-100 border-zinc-800/50  bg-white dark:bg-[#131B2B]/50 backdrop-blur p-6 hover:border-amber-500/30 transition shadow-lg group relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-l from-transparent via-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 relative z-10">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 flex-wrap mb-3">
-                    <p className="font-mono text-sm font-bold text-amber-500 ">FILE #{fir.firNumber}</p>
-                    <StatusBadge status={fir.status} />
-                    <span className="rounded bg-slate-800/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-700 dark:text-slate-300 border border-slate-200 border-zinc-800">
-                      CLASS: {fir.incidentType.replace("_", " ")}
-                    </span>
-                  </div>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white tracking-wide">{fir.complainantName}</p>
-                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 font-mono items-center">
-                    <span>{fir.user.email}</span>
-                    <span className="text-slate-700">|</span>
-                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-cyan-500" /> {fir.location}</span>
-                    <span className="text-slate-700">|</span>
-                    <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-cyan-500" /> {new Date(fir.incidentDateTime).toLocaleString()}</span>
-                  </div>
-                  <div className="mt-4 p-4 rounded-xl border border-slate-100 border-zinc-800/50 bg-slate-950/60 shadow-inner">
-                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic border-l-2 border-amber-500/50 pl-3">"{fir.description}"</p>
-                  </div>
-                </div>
-                
-                <div className="lg:min-w-64 bg-slate-950/80 border border-slate-200 border-zinc-800 rounded-xl p-4 flex flex-col gap-3">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-100 border-zinc-800/50 pb-2">Authority Control</span>
-                  <div>
-                    <label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block">Set File Status:</label>
-                    <select
-                      value={fir.status}
-                      onChange={(e) => onStatusChange(fir.id, e.target.value)}
-                      className="w-full rounded-lg border border-slate-700 bg-white dark:bg-[#131B2B] px-3 py-2 text-sm font-bold tracking-wide text-slate-900 dark:text-white outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 appearance-none"
-                    >
-                      <option value="PENDING">PENDING REVIEW</option>
-                      <option value="INVESTIGATING">INVESTIGATING</option>
-                      <option value="RESOLVED">RESOLVED</option>
-                      <option value="CLOSED">ARCHIVED</option>
-                    </select>
-                  </div>
-                  {fir.status === "RESOLVED" && <div className="text-xs font-bold text-center bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 py-2 rounded-lg mt-2">CASE CLOSED</div>}
-                </div>
+      {/* Reject Modal */}
+      {rejectingId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-white dark:bg-[#131B2B] overflow-hidden">
+            <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-4">
+              <h3 className="text-sm font-bold tracking-widest uppercase text-red-500 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Reject / Request More Info
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1 block">Reason for Rejection *</label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Explain why this report is being rejected or what additional info is needed..."
+                  rows={3}
+                  className="w-full rounded-xl border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-4 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400/50 resize-none"
+                />
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">The reporter will be notified with this reason.</p>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setRejectingId(null); setRejectReason(""); }}
+                  className="flex-1 rounded-xl border border-slate-300 dark:border-[#2A303C] px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#0B0F19] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onStatusChange(rejectingId, "REJECTED", adminNotesMap[rejectingId] || undefined, rejectReason);
+                    setRejectingId(null);
+                    setRejectReason("");
+                  }}
+                  disabled={!rejectReason.trim()}
+                  className="flex-1 rounded-xl bg-red-500 border border-red-400 px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-red-600 disabled:opacity-50 transition"
+                >
+                  Reject & Notify User
+                </button>
               </div>
             </div>
-          ))}
+          </div>
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={FileText} message="Repository Empty" hint="Authorized incident reports will sync here." color="amber" />
+      ) : (
+        <div className="space-y-4">
+          {filtered.map((fir) => {
+            const evidenceList = parseEvidence(fir.evidenceUrls);
+            const isExpanded = expandedId === fir.id;
+            const isHighSeverity = fir.severity === "CRITICAL" || fir.severity === "HIGH";
+
+            return (
+              <div
+                key={fir.id}
+                className={`rounded-2xl border bg-white dark:bg-[#131B2B]/50 backdrop-blur p-6 transition shadow-lg group relative overflow-hidden ${
+                  isHighSeverity && fir.status === "PENDING" ? "border-red-500/50" : "border-slate-200 dark:border-[#2A303C]"
+                } hover:border-amber-500/30`}
+              >
+                {/* High severity banner */}
+                {isHighSeverity && fir.status === "PENDING" && (
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500 animate-pulse" />
+                )}
+                <div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-l from-transparent via-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 relative z-10">
+                  <div className="flex-1">
+                    {/* Header badges */}
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                      <p className="font-mono text-sm font-bold text-amber-500">FILE #{fir.firNumber}</p>
+                      <StatusBadge status={fir.status} />
+                      <span className="rounded bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#2A303C]">
+                        CLASS: {fir.incidentType.replace("_", " ")}
+                      </span>
+                      <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${SEVERITY_COLORS[fir.severity] || SEVERITY_COLORS.MEDIUM}`}>
+                        {fir.severity}
+                      </span>
+                      {evidenceList.length > 0 && (
+                        <span className="rounded bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 text-[10px] font-bold text-blue-500">
+                          📎 {evidenceList.length} Evidence
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Reporter info */}
+                    <p className="text-lg font-bold text-slate-900 dark:text-white tracking-wide">{fir.complainantName}</p>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 font-mono items-center">
+                      <span>{fir.user.email}</span>
+                      {fir.complainantContact && (
+                        <><span className="text-slate-300 dark:text-slate-700">|</span><span>📞 {fir.complainantContact}</span></>
+                      )}
+                      <span className="text-slate-300 dark:text-slate-700">|</span>
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-cyan-500" /> {fir.location}</span>
+                      <span className="text-slate-300 dark:text-slate-700">|</span>
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-cyan-500" /> {new Date(fir.incidentDateTime).toLocaleString()}</span>
+                    </div>
+
+                    {/* Description */}
+                    <div className="mt-4 p-4 rounded-xl border border-slate-200 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19]/60 shadow-inner">
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed italic border-l-2 border-amber-500/50 pl-3">"{fir.description}"</p>
+                    </div>
+
+                    {/* Evidence Preview (collapsed / expanded) */}
+                    {evidenceList.length > 0 && (
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedId(isExpanded ? null : fir.id)}
+                          className="text-xs font-bold uppercase tracking-widest text-blue-500 hover:text-blue-400 flex items-center gap-1.5 transition"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          {isExpanded ? "Hide Evidence" : `View ${evidenceList.length} Evidence File${evidenceList.length > 1 ? "s" : ""}`}
+                        </button>
+                        {isExpanded && (
+                          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 animate-in slide-in-from-top-2 duration-300">
+                            {evidenceList.map((url, i) => (
+                              <a
+                                key={i}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block rounded-xl border border-slate-200 dark:border-[#2A303C] overflow-hidden hover:border-blue-500/50 transition group/ev"
+                              >
+                                {isImage(url) ? (
+                                  <img src={url} alt={`Evidence ${i + 1}`} className="h-24 w-full object-cover" />
+                                ) : (
+                                  <div className="h-24 w-full flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800">
+                                    <FileText className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+                                    <p className="mt-1 text-[9px] font-bold uppercase text-slate-500 dark:text-slate-400">{url.split(".").pop()}</p>
+                                  </div>
+                                )}
+                                <div className="px-2 py-1.5 text-[9px] font-mono text-slate-500 dark:text-slate-400 truncate group-hover/ev:text-blue-500 transition">
+                                  File {i + 1}
+                                </div>
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        {fir.evidenceNotes && (
+                          <div className="mt-2 p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 text-xs text-slate-600 dark:text-slate-300">
+                            <span className="font-bold text-blue-500 mr-1">📝 Witness Notes:</span> {fir.evidenceNotes}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Previous admin notes / rejection reason */}
+                    {fir.adminNotes && (
+                      <div className="mt-3 p-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/20 text-xs text-slate-600 dark:text-slate-300">
+                        <span className="font-bold text-cyan-500 mr-1">Admin Notes:</span> {fir.adminNotes}
+                      </div>
+                    )}
+                    {fir.rejectionReason && (
+                      <div className="mt-2 p-2.5 rounded-lg bg-red-500/5 border border-red-500/20 text-xs text-slate-600 dark:text-slate-300">
+                        <span className="font-bold text-red-500 mr-1">Rejection Reason:</span> {fir.rejectionReason}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Authority Control Panel */}
+                  <div className="lg:min-w-72 bg-slate-50 dark:bg-[#0B0F19]/80 border border-slate-200 dark:border-[#2A303C] rounded-xl p-4 flex flex-col gap-3">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-[#2A303C] pb-2">Authority Control</span>
+                    
+                    {/* Admin Notes Input */}
+                    <div>
+                      <label className="text-[10px] text-slate-500 dark:text-slate-400 mb-1 block font-bold uppercase tracking-wider">Admin Notes:</label>
+                      <textarea
+                        value={adminNotesMap[fir.id] || ""}
+                        onChange={(e) => setAdminNotesMap(prev => ({ ...prev, [fir.id]: e.target.value }))}
+                        placeholder="Add review comments..."
+                        rows={2}
+                        className="w-full rounded-lg border border-slate-300 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] px-3 py-2 text-xs text-slate-700 dark:text-slate-300 outline-none focus:border-cyan-400 resize-none"
+                      />
+                    </div>
+
+                    {fir.status === "PENDING" ? (
+                      <div className="flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onStatusChange(fir.id, "APPROVED", adminNotesMap[fir.id])}
+                          className="w-full rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2.5 text-xs font-bold uppercase text-emerald-500 hover:bg-emerald-500 hover:text-white transition"
+                        >
+                          ✅ Approve Report
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRejectingId(fir.id)}
+                          className="w-full rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2.5 text-xs font-bold uppercase text-red-400 hover:bg-red-500 hover:text-white transition"
+                        >
+                          ❌ Reject / Need More Info
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onStatusChange(fir.id, "INVESTIGATING", adminNotesMap[fir.id])}
+                          className="w-full rounded-lg bg-blue-500/10 border border-blue-500/30 px-3 py-2.5 text-xs font-bold uppercase text-blue-400 hover:bg-blue-500 hover:text-white transition"
+                        >
+                          🔍 Open Investigation
+                        </button>
+                        {isHighSeverity && (
+                          <div className="mt-1 p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-center">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 animate-pulse">⚠️ HIGH SEVERITY — Consider Escalation</p>
+                            <p className="text-[9px] text-red-400 mt-1">This incident may require law enforcement involvement</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : fir.status === "APPROVED" ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="text-xs font-bold text-center bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 py-2 rounded-lg">✅ REPORT VERIFIED</div>
+                        <button
+                          type="button"
+                          onClick={() => onStatusChange(fir.id, "INVESTIGATING", adminNotesMap[fir.id])}
+                          className="w-full rounded-lg bg-blue-500/10 border border-blue-500/30 px-3 py-2 text-xs font-bold uppercase text-blue-400 hover:bg-blue-500 hover:text-white transition"
+                        >
+                          🔍 Open Investigation
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onStatusChange(fir.id, "RESOLVED", adminNotesMap[fir.id])}
+                          className="w-full rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-xs font-bold uppercase text-emerald-500 hover:bg-emerald-500 hover:text-white transition"
+                        >
+                          ✅ Mark Resolved
+                        </button>
+                      </div>
+                    ) : fir.status === "REJECTED" ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="text-xs font-bold text-center bg-red-500/10 text-red-400 border border-red-500/30 py-2 rounded-lg">❌ REJECTED — AWAITING RESUBMISSION</div>
+                        <button
+                          type="button"
+                          onClick={() => onStatusChange(fir.id, "PENDING", adminNotesMap[fir.id])}
+                          className="w-full rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs font-bold uppercase text-amber-400 hover:bg-amber-500 hover:text-white transition"
+                        >
+                          ↩️ Reopen for Review
+                        </button>
+                      </div>
+                    ) : fir.status === "INVESTIGATING" ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="text-xs font-bold text-center bg-blue-500/10 text-blue-400 border border-blue-500/30 py-2 rounded-lg">🔍 UNDER INVESTIGATION</div>
+                        <button
+                          type="button"
+                          onClick={() => onStatusChange(fir.id, "RESOLVED", adminNotesMap[fir.id])}
+                          className="w-full rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-xs font-bold uppercase text-emerald-500 hover:bg-emerald-500 hover:text-white transition"
+                        >
+                          ✅ Mark Resolved
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onStatusChange(fir.id, "CLOSED", adminNotesMap[fir.id])}
+                          className="w-full rounded-lg bg-slate-700/30 border border-slate-600 px-3 py-2 text-xs font-bold uppercase text-slate-400 hover:bg-slate-700 hover:text-white transition"
+                        >
+                          📁 Archive Case
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="text-xs font-bold text-center bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 py-2 rounded-lg">CASE {fir.status}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1569,10 +1811,11 @@ function StatusBadge({ status }: { status: string }) {
     CLOSED: "bg-slate-800/80 text-slate-400 border-slate-700",
     ACTIVE: "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse",
     VERIFIED: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+    APPROVED: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
     RED: "bg-red-500/10 text-red-500 border-red-500/30",
     ORANGE: "bg-orange-500/10 text-orange-500 border-orange-500/30",
     YELLOW: "bg-yellow-500/10 text-yellow-500 border-yellow-500/30",
-    REJECTED: "bg-slate-800/80 text-slate-400 border-slate-700",
+    REJECTED: "bg-red-500/10 text-red-400 border-red-500/30",
     INACTIVE: "bg-slate-800/80 text-slate-400 border-slate-700",
   };
 

@@ -18,7 +18,7 @@ model User {
   lng                    Float?
   address                String?
   status                 String   @default("SAFE")
-  kycStatus              String   @default("Pending")
+  kycStatus              String   @default("Complete")
   locationTrackingStatus String   @default("Pending")
   emailVerified          Boolean  @default(false)
 
@@ -81,7 +81,8 @@ model SystemActivity {
 }
 
 // IncidentType values: THEFT, ASSAULT, CYBERCRIME, HARASSMENT, ROBBERY, OTHER
-// Stored as String because SQLite does not support enums.
+// Status values: PENDING, APPROVED, REJECTED, INVESTIGATING, RESOLVED, CLOSED
+// Severity values: LOW, MEDIUM, HIGH, CRITICAL
 
 model FIR {
   id               String       @id @default(cuid())
@@ -96,7 +97,11 @@ model FIR {
   description      String
   accusedDetails   String?
   evidenceUrls     String?
+  evidenceNotes    String?      // Eyewitness notes about the uploaded evidence
+  severity         String       @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
   status           String       @default("PENDING")
+  adminNotes       String?      // Admin review comments
+  rejectionReason  String?      // Reason when admin rejects or needs more info
   otpCode          String?
   otpSentAt        DateTime?
   verifiedAt       DateTime?

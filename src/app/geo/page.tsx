@@ -135,6 +135,14 @@ export default function GeoPage() {
   const [mapType, setMapType] = useState<"satellite" | "thematic">("satellite");
   const [allFences, setAllFences] = useState<GeoFenceMapFence[]>([]);
 
+  // Geo Fence Category
+  const [geoFenceCategory, setGeoFenceCategory] = useState("all");
+
+  // AI Geo Fence state
+  const [aiFences, setAiFences] = useState<Record<string, GeoFenceMapFence[]> | null>(null);
+  const [aiFenceLoading, setAiFenceLoading] = useState(false);
+  const [aiFenceSummary, setAiFenceSummary] = useState<string | null>(null);
+
   // Fetch fences for Thematic map
   useEffect(() => {
     fetch("/api/admin/geofences")
@@ -146,6 +154,41 @@ export default function GeoPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Fetch AI fences when category changes
+  useEffect(() => {
+    if (geoFenceCategory === "all" || !loc) {
+      return;
+    }
+
+    // If we already have cached AI data, just switch the map
+    if (aiFences && aiFences[geoFenceCategory]) {
+      setMapType("thematic");
+      return;
+    }
+
+    // Fetch all categories in one call
+    setAiFenceLoading(true);
+    setAiFenceSummary(null);
+    setMapType("thematic");
+
+    fetch(`/api/geofence-ai?lat=${loc.lat}&lng=${loc.lng}&category=${geoFenceCategory}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("AI fence fetch failed");
+        return r.json();
+      })
+      .then((data) => {
+        if (data.fences) {
+          setAiFences(data.fences);
+          setAiFenceSummary(data.summary || null);
+        }
+      })
+      .catch((e) => {
+        console.error("[geo] AI fence error:", e);
+      })
+      .finally(() => setAiFenceLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geoFenceCategory, loc?.lat, loc?.lng]);
 
   // Notification permission request
   useEffect(() => {
@@ -409,10 +452,17 @@ export default function GeoPage() {
            </div>
 
            <div className="flex items-center gap-3 text-sm">
-                <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-[#2A303C] px-3 py-1.5 text-slate-700 dark:text-slate-300">
-                    <Crosshair className="h-4 w-4" />
-                    Accuracy: {accuracy ? `±${accuracy.toFixed(1)}m` : '---'}
-                </div>
+                {/* Geo Fence Category Selector */}
+                <select
+                  value={geoFenceCategory}
+                  onChange={(e) => setGeoFenceCategory(e.target.value)}
+                  className="rounded-xl border border-slate-300 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition cursor-pointer"
+                >
+                  <option value="all">All Geo Fences</option>
+                  <option value="hazard">🌍 Hazard</option>
+                  <option value="traffic">🚦 Traffic</option>
+                  <option value="risk">⚠️ Risk</option>
+                </select>
 
                 {/* Map Type Selector */}
                 <select
@@ -528,8 +578,22 @@ export default function GeoPage() {
                    <ThematicMap
                      lat={loc.lat}
                      lng={loc.lng}
-                     fences={allFences}
+                     fences={
+                       geoFenceCategory !== "all" && aiFences && aiFences[geoFenceCategory]
+                         ? aiFences[geoFenceCategory]
+                         : allFences
+                     }
                    />
+                 )}
+
+                 {/* AI Fence Loading Overlay */}
+                 {aiFenceLoading && (
+                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0B0F19]/70 backdrop-blur-sm">
+                     <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+                     <p className="mt-3 text-sm font-bold text-cyan-300 tracking-wide animate-pulse">
+                       AI analyzing {geoFenceCategory} zones...
+                     </p>
+                   </div>
                  )}
                </div>
             ) : (

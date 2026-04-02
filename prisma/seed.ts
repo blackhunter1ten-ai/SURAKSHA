@@ -30,7 +30,7 @@ async function main() {
       lng: 77.2295,
       address: "Tourist Information Center, Rajpath, India Gate, New Delhi, India",
       status: "SAFE",
-      kycStatus: "Complete",
+      kycStatus: "Completed",
       locationTrackingStatus: "Pending",
     },
   });
@@ -110,24 +110,24 @@ async function main() {
       ],
     });
 
-  // Seed demo FIRs
-  const john = await prisma.user.findUnique({ where: { email: "john@demo.com" } });
-  if (john) {
-    await prisma.fIR.create({
-      data: {
-        firNumber: "FIR-2024-0001",
-        userId: john.id,
-        complainantName: john.name,
-        complainantContact: "+1-555-0123",
-        incidentType: "THEFT",
-        incidentDateTime: new Date("2024-10-01T14:30:00Z"),
-        location: "Connaught Place, Delhi",
-        description: "Wallet stolen while shopping. Suspect fled on bike.",
-        accusedDetails: "Male, 30s, black shirt",
-        status: "PENDING",
-      },
-    });
-  }
+    // Seed demo FIRs
+    const john = await prisma.user.findUnique({ where: { email: "john@demo.com" } });
+    if (john) {
+      await prisma.fIR.create({
+        data: {
+          firNumber: "FIR-2024-0001",
+          userId: john.id,
+          complainantName: john.name,
+          complainantContact: "+1-555-0123",
+          incidentType: "THEFT",
+          incidentDateTime: new Date("2024-10-01T14:30:00Z"),
+          location: "Connaught Place, Delhi",
+          description: "Wallet stolen while shopping. Suspect fled on bike.",
+          accusedDetails: "Male, 30s, black shirt",
+          status: "PENDING",
+        },
+      });
+    }
   }
 
   // ── Seed demo Geo-Fences ──────────────────────────────────

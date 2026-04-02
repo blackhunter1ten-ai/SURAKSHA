@@ -101,10 +101,13 @@ export default function GeoFenceMap({
         });
 
         circle.bindPopup(
-          `<div style="font-family:monospace;font-size:12px">
-            <strong style="color:${color}">${fence.zone} ZONE</strong><br/>
-            <strong>${fence.name}</strong><br/>
-            Radius: ${fence.radius}m
+          `<div style="font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;min-width:200px">
+            <div style="display:inline-block;background:${color}18;border:1.5px solid ${color};border-radius:6px;padding:2px 10px;margin-bottom:8px">
+              <span style="color:${color};font-weight:800;font-size:11px;letter-spacing:1.5px;text-transform:uppercase">${fence.zone} ZONE</span>
+            </div>
+            <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px">${fence.name}</div>
+            <div style="color:#64748b;font-size:11px;margin-bottom:6px">Radius: ${fence.radius}m</div>
+            ${fence.description ? `<div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:6px 8px;font-size:11px;color:#475569;line-height:1.5;border-left:3px solid ${color}">${fence.description}</div>` : ''}
           </div>`,
         );
 
@@ -140,10 +143,13 @@ export default function GeoFenceMap({
         });
 
         polygon.bindPopup(
-          `<div style="font-family:monospace;font-size:12px">
-            <strong style="color:${color}">${fence.zone} ZONE</strong><br/>
-            <strong>${fence.name}</strong><br/>
-            Vertices: ${vertices.length}
+          `<div style="font-family:'Segoe UI',system-ui,sans-serif;font-size:12px;min-width:200px">
+            <div style="display:inline-block;background:${color}18;border:1.5px solid ${color};border-radius:6px;padding:2px 10px;margin-bottom:8px">
+              <span style="color:${color};font-weight:800;font-size:11px;letter-spacing:1.5px;text-transform:uppercase">${fence.zone} ZONE</span>
+            </div>
+            <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:4px">${fence.name}</div>
+            <div style="color:#64748b;font-size:11px;margin-bottom:6px">Polygon · ${vertices.length} vertices</div>
+            ${fence.description ? `<div style="background:rgba(0,0,0,0.04);border-radius:6px;padding:6px 8px;font-size:11px;color:#475569;line-height:1.5;border-left:3px solid ${color}">${fence.description}</div>` : ''}
           </div>`,
         );
 
