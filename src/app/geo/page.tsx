@@ -11,6 +11,13 @@ const SatelliteMap = dynamic(() => import("@/components/maps/SatelliteMap"), {
   loading: () => <div className="absolute inset-0 flex items-center justify-center bg-slate-50 dark:bg-[#0B0F19]"><Loader2 className="h-8 w-8 animate-spin text-emerald-500" /></div>
 });
 
+const ThematicMap = dynamic(() => import("@/components/maps/ThematicMap"), {
+  ssr: false,
+  loading: () => <div className="absolute inset-0 flex items-center justify-center bg-slate-50 dark:bg-[#0B0F19]"><Loader2 className="h-8 w-8 animate-spin text-emerald-500" /></div>
+});
+
+import type { GeoFenceMapFence } from "@/components/maps/GeoFenceMap";
+
 interface Loc { lat: number; lng: number }
 
 interface ExtendedGeolocationPosition extends GeolocationPosition {
@@ -114,6 +121,7 @@ export default function GeoPage() {
   const [threatLoading, setThreatLoading] = useState(false);
   const [threatError, setThreatError] = useState<string | null>(null);
   const [hoveredThreat, setHoveredThreat] = useState<ThreatMarker | null>(null);
+  const [expandThreat, setExpandThreat] = useState(false);
 
   // Geo-fence state
   const [geoFenceAlerts, setGeoFenceAlerts] = useState<GeoFenceAlert[]>([]);
@@ -123,9 +131,21 @@ export default function GeoPage() {
   const cooldownRef = useRef<Record<string, number>>({});
   const COOLDOWN_MS = 30_000;
 
-  // SOS state
-  const [sosTriggered, setSosTriggered] = useState(false);
-  const [sosSending, setSosSending] = useState(false);
+  // Map Type
+  const [mapType, setMapType] = useState<"satellite" | "thematic">("satellite");
+  const [allFences, setAllFences] = useState<GeoFenceMapFence[]>([]);
+
+  // Fetch fences for Thematic map
+  useEffect(() => {
+    fetch("/api/admin/geofences")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data && data.fences) {
+          setAllFences(data.fences);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Notification permission request
   useEffect(() => {
@@ -330,45 +350,6 @@ export default function GeoPage() {
     return () => clearInterval(interval);
   }, [loc?.lat, loc?.lng, processGeoFenceCheck]);
 
-  // ── SOS Emergency Button Handler ──────────────────────────
-
-  const triggerSOS = async () => {
-    if (sosSending) return;
-    setSosSending(true);
-    setSosTriggered(true);
-
-    // Maximum vibration alert
-    triggerVibration([1000, 500, 1000, 500, 1000]);
-
-    // Sound alarm
-    playAlertBeep("danger");
-    setTimeout(() => playAlertBeep("danger"), 600);
-
-    // Push notification
-    sendPushNotification(
-      "🚨 SOS EMERGENCY TRIGGERED",
-      "Emergency signal sent to authorities. Help is on the way.",
-    );
-
-    try {
-      await fetch("/api/emergency", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lat: loc?.lat,
-          lng: loc?.lng,
-          accuracy: accuracy,
-        }),
-      });
-    } catch {
-      // Best effort
-    } finally {
-      setSosSending(false);
-      // Auto-dismiss after 8 seconds
-      setTimeout(() => setSosTriggered(false), 8000);
-    }
-  };
-
   // ── Dismiss alert ─────────────────────────────────────────
 
   const dismissAlert = (alertId: string) => {
@@ -433,26 +414,15 @@ export default function GeoPage() {
                     Accuracy: {accuracy ? `±${accuracy.toFixed(1)}m` : '---'}
                 </div>
 
-                {/* SOS Emergency Button */}
-                <button
-                  type="button"
-                  onClick={triggerSOS}
-                  disabled={sosSending || !loc}
-                  className={`relative flex items-center gap-2 rounded-xl px-5 py-2 text-xs font-bold uppercase tracking-widest transition-all border ${
-                    sosTriggered
-                      ? "bg-red-600 border-red-400 text-white animate-pulse"
-                      : "bg-red-500/10 border-red-500/30 text-red-500 hover:bg-red-600 hover:text-white hover:border-red-400"
-                  }`}
+                {/* Map Type Selector */}
+                <select
+                  value={mapType}
+                  onChange={(e) => setMapType(e.target.value as "satellite" | "thematic")}
+                  className="rounded-xl border border-slate-300 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition cursor-pointer"
                 >
-                  <Phone className="h-4 w-4" />
-                  {sosSending ? "SENDING..." : sosTriggered ? "SOS SENT ✓" : "SOS"}
-                  {!sosTriggered && (
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                    </span>
-                  )}
-                </button>
+                  <option value="satellite">Satellite Map</option>
+                  <option value="thematic">Thematic Map</option>
+                </select>
            </div>
         </div>
 
@@ -496,7 +466,9 @@ export default function GeoPage() {
                       }
                     </p>
                     {alert.description && (
-                      <p className="text-[11px] mt-1.5 opacity-70 italic">{alert.description}</p>
+                      <div className="mt-2 text-xs opacity-100 bg-black/20 p-2.5 rounded border border-white/10 font-bold" style={{lineHeight: 1.5}}>
+                        {alert.description}
+                      </div>
                     )}
                     <div className="flex items-center gap-2 mt-2">
                       <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
@@ -526,35 +498,6 @@ export default function GeoPage() {
           ))}
         </div>
 
-        {/* ── SOS Triggered Full-Screen Overlay ─── */}
-        {sosTriggered && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-red-950/80 backdrop-blur-md animate-in fade-in duration-300 pointer-events-auto">
-            <div className="text-center p-8 max-w-md">
-              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-red-500/20 border-2 border-red-500 animate-pulse mb-6">
-                <Phone className="h-12 w-12 text-red-400" />
-              </div>
-              <h2 className="text-3xl font-bold text-white mb-2">🚨 SOS ACTIVATED</h2>
-              <p className="text-red-200 text-sm mb-6">
-                Emergency signal sent to authorities with your coordinates.
-                Help is being dispatched to your location.
-              </p>
-              {loc && (
-                <p className="text-xs font-mono text-red-300/80 bg-red-500/10 border border-red-500/30 rounded-xl p-3">
-                  📍 {loc.lat.toFixed(6)}°N, {loc.lng.toFixed(6)}°E
-                  {accuracy && ` (±${accuracy.toFixed(0)}m)`}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => setSosTriggered(false)}
-                className="mt-6 rounded-xl border border-white/20 bg-white/10 px-8 py-3 text-sm font-bold text-white hover:bg-white/20 transition"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Map Container */}
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] shadow-sm aspect-video sm:aspect-[21/9]">
             {loading ? (
@@ -574,12 +517,20 @@ export default function GeoPage() {
 
             {loc ? (
                <div className="absolute inset-0 z-0">
-                 <SatelliteMap 
-                   lat={loc.lat} 
-                   lng={loc.lng} 
-                   threatMarkers={threatPins} 
-                   onHover={setHoveredThreat} 
-                 />
+                 {mapType === "satellite" ? (
+                   <SatelliteMap 
+                     lat={loc.lat} 
+                     lng={loc.lng} 
+                     threatMarkers={threatPins} 
+                     onHover={setHoveredThreat} 
+                   />
+                 ) : (
+                   <ThematicMap
+                     lat={loc.lat}
+                     lng={loc.lng}
+                     fences={allFences}
+                   />
+                 )}
                </div>
             ) : (
               <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, black 1px, transparent 0)', backgroundSize: '24px 24px' }} />
@@ -618,52 +569,48 @@ export default function GeoPage() {
                             {threatError && !threatLoading && !hoveredThreat && (
                               <p className="mt-1 text-xs text-amber-300">{threatError}</p>
                             )}
-                            {(hoveredThreat?.zone || threatZone) && !threatLoading && (
-                              <div className="mt-1.5">
-                                <span
-                                  className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${
-                                    (hoveredThreat?.zone || threatZone) === "RED"
-                                      ? "bg-red-600 text-white"
-                                      : (hoveredThreat?.zone || threatZone) === "ORANGE"
-                                        ? "bg-orange-600 text-white"
-                                        : (hoveredThreat?.zone || threatZone) === "YELLOW"
-                                          ? "bg-yellow-500 text-slate-900"
-                                          : "bg-emerald-600 text-white"
-                                  }`}
-                                >
-                                  {hoveredThreat?.zone || threatZone}
-                                </span>
-                                <span className="ml-2 text-xs text-slate-300">
-                                  {hoveredThreat ? hoveredThreat.label : 'Colored pins show approximate hotspots.'}
-                                </span>
-                              </div>
+                            {!threatLoading && (hoveredThreat?.zone || threatZone || hoveredThreat?.summary || threatSummary) && (
+                              <button
+                                onClick={() => setExpandThreat(!expandThreat)}
+                                className="text-[10px] uppercase font-bold tracking-widest text-emerald-400 mt-2 hover:text-emerald-300 transition-colors pointer-events-auto flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg w-fit"
+                              >
+                                {expandThreat ? "Collapse Details" : "Read More AI Details"}
+                              </button>
                             )}
-                            {!threatLoading && (hoveredThreat?.summary || threatSummary) && (
-                              <p className="mt-2 text-xs leading-relaxed text-slate-200 line-clamp-4">
-                                {hoveredThreat?.summary || threatSummary}
-                              </p>
+
+                            {expandThreat && !threatLoading && (
+                              <div className="mt-3 bg-black/20 rounded-xl p-3 border border-white/5 shadow-inner">
+                                {(hoveredThreat?.zone || threatZone) && (
+                                  <div className="mb-2">
+                                    <span
+                                      className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${
+                                        (hoveredThreat?.zone || threatZone) === "RED"
+                                          ? "bg-red-600 text-white"
+                                          : (hoveredThreat?.zone || threatZone) === "ORANGE"
+                                            ? "bg-orange-600 text-white"
+                                            : (hoveredThreat?.zone || threatZone) === "YELLOW"
+                                              ? "bg-yellow-500 text-slate-900"
+                                              : "bg-emerald-600 text-white"
+                                      }`}
+                                    >
+                                      {hoveredThreat?.zone || threatZone}
+                                    </span>
+                                    <span className="ml-2 text-[11px] text-slate-300">
+                                      {hoveredThreat ? hoveredThreat.label : 'Pins indicate approximate hotspots.'}
+                                    </span>
+                                  </div>
+                                )}
+                                {(hoveredThreat?.summary || threatSummary) && (
+                                  <p className="text-[11px] leading-relaxed text-slate-200">
+                                    {hoveredThreat?.summary || threatSummary}
+                                  </p>
+                                )}
+                              </div>
                             )}
                           </div>
                         )}
                     </div>
 
-                    <div className="rounded-2xl border border-white/20 bg-slate-900/80 p-4 backdrop-blur-md shadow-2xl w-full sm:w-auto flex gap-8 ring-1 ring-black/5">
-                         <div>
-                            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Speed</p>
-                            <p className="mt-1.5 font-mono text-base font-semibold text-white drop-shadow-md">
-                                {speed !== null ? `${(speed * 3.6).toFixed(1)} km/h` : '0.0 km/h'}
-                            </p>
-                         </div>
-                         <div>
-                            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Heading</p>
-                            <p className="mt-1.5 font-mono text-base font-semibold text-white drop-shadow-md flex items-center gap-2">
-                                {heading !== null ? `${heading.toFixed(0)}°` : '---'}
-                                {heading !== null && (
-                                    <Navigation className="h-4 w-4 text-emerald-400" style={{ transform: `rotate(${heading}deg)` }} />
-                                )}
-                            </p>
-                         </div>
-                    </div>
                 </div>
             )}
             

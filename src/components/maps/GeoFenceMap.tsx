@@ -14,6 +14,7 @@ export interface GeoFenceMapFence {
   zone: string;
   name: string;
   active: boolean;
+  description?: string | null;
 }
 
 interface Props {

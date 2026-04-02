@@ -80,9 +80,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
     const fir = await prisma.fIR.create({
       data: {
         firNumber,
@@ -96,22 +93,14 @@ export async function POST(req: NextRequest) {
         description: data.description,
         accusedDetails: data.accusedDetails || null,
         evidenceUrls: evidenceUrls.length ? JSON.stringify(evidenceUrls) : null,
-        otpCode: otp,
-        otpSentAt: new Date(),
+        status: "VERIFIED",
+        verifiedAt: new Date(),
       },
     });
 
-    await prisma.otp.create({
-      data: {
-        firId: fir.id,
-        code: otp,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-      },
-    });
+    console.log(`FIR ${firNumber} auto-verified for user ${session.sub}`);
 
-    console.log(`OTP ${otp} sent for FIR ${firNumber} to user ${session.sub}`);
-
-    return NextResponse.json({ success: true, firNumber, message: "FIR submitted, check OTP" });
+    return NextResponse.json({ success: true, firNumber, message: "FIR submitted successfully" });
   } catch (error: any) {
     console.error("FIR submission error:", error);
     if (error.name === "ZodError") {

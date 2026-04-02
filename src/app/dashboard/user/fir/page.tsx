@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export default function FirPage() {
   const router = useRouter();
 
-  const [step, setStep] = useState<'form' | 'otp'>('form');
+  const [step, setStep] = useState<'form' | 'success'>('form');
   const [firNumber, setFirNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [signatureChecked, setSignatureChecked] = useState(false);
@@ -61,11 +61,8 @@ export default function FirPage() {
       }
   
       if (data.success && data.firNumber) {
-        setStep('otp');
+        setStep('success');
         setFirNumber(data.firNumber);
-        setOtp('');
-        setSignatureChecked(false);
-        setVerifyErr(null);
       } else {
         throw new Error("No FIR number returned");
       }
@@ -125,55 +122,28 @@ export default function FirPage() {
         Provide accurate incident details. This will be securely submitted to authorities.
       </p>
 
-      {step === 'otp' ? (
-        <div className="mt-8 space-y-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/60 p-6 shadow-sm dark:shadow-2xl dark:backdrop-blur transition-all">
-          <h2 className="text-xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-            FIR <span className="font-mono bg-emerald-50 dark:bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-100 dark:border-emerald-500/30">{firNumber}</span> Submitted
-          </h2>
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-            OTP sent to your registered contact. Check SMS/email.
-          </p>
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <input
-              type="text"
-              maxLength={6}
-              placeholder="Enter 6-digit OTP"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-              className={inputClass}
-            />
-            <div></div>
+      {step === 'success' ? (
+        <div className="mt-8 flex flex-col items-center justify-center space-y-6 rounded-2xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/10 p-10 text-center shadow-sm dark:shadow-2xl transition-all">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-          <label className="flex items-center space-x-3 mt-4 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={signatureChecked}
-              onChange={(e) => setSignatureChecked(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 bg-white text-emerald-600 focus:ring-emerald-500 dark:border-white/20 dark:bg-slate-950 dark:checked:bg-emerald-500 dark:checked:border-emerald-500 transition"
-            />
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              I confirm the FIR details above and provide my e-signature
-            </span>
-          </label>
-          {verifyErr && (
-            <p className="text-sm rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 px-3 py-2 font-semibold text-red-600 dark:text-red-400 mt-2" role="alert">
-              {verifyErr}
-            </p>
-          )}
+          <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+            FIR Submitted Successfully
+          </h2>
+          <p className="text-base font-medium text-slate-600 dark:text-slate-400 max-w-md">
+            Your complaint has been securely registered and officially processed. Your reference number is:
+          </p>
+          <div className="inline-block rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-slate-900 px-6 py-3 font-mono text-xl font-bold text-emerald-600 dark:text-emerald-400 shadow-sm">
+            {firNumber}
+          </div>
           <button
             type="button"
-            onClick={handleVerify}
-            disabled={verifyLoading || otp.length !== 6 || !signatureChecked}
-            className="mt-6 w-full rounded-xl bg-emerald-600 dark:bg-emerald-500/20 dark:border dark:border-emerald-500/50 py-3 text-sm font-bold uppercase tracking-widest text-white dark:text-emerald-400 hover:bg-emerald-700 dark:hover:bg-emerald-500/30 disabled:opacity-50 transition"
+            onClick={() => router.push('/dashboard/user')}
+            className="mt-4 w-full max-w-xs rounded-xl bg-slate-900 dark:bg-white py-3 text-sm font-bold uppercase tracking-widest text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition"
           >
-            {verifyLoading ? "Verifying Token..." : "Verify OTP & e-Sign FIR"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setStep('form')}
-            className="mt-4 w-full text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
-          >
-            ← Back to Form
+            ← Back to Dashboard
           </button>
         </div>
       ) : (

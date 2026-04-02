@@ -119,6 +119,9 @@ export default function RegisterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          phone: `+91 ${form.phone}`,
+          alternativePhone: `+91 ${form.alternativePhone}`,
+          emergencyContactPhone: `+91 ${form.emergencyContactPhone}`,
           aadhaarNumber: form.aadhaarNumber.replace(/\s/g, ""),
         }),
       });
@@ -262,26 +265,48 @@ export default function RegisterPage() {
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <FormField label="Phone Number" required icon={Phone} error={fieldErrors.phone}>
-                <input
-                  name="phone"
-                  type="tel"
-                  required
-                  placeholder="+91 98765 43210"
-                  value={form.phone}
-                  onChange={handleChange}
-                  className={inputClass("phone")}
-                />
+                <div className="relative mt-0.5 flex">
+                  <span className="flex items-center rounded-l-lg border border-r-0 border-slate-200 dark:border-[#2A303C] bg-slate-100 dark:bg-[#1A2234] px-3 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-400">
+                    +91
+                  </span>
+                  <input
+                    name="phone"
+                    type="tel"
+                    required
+                    placeholder="9876543210"
+                    value={form.phone}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setForm((prev) => ({ ...prev, phone: val }));
+                      if (fieldErrors.phone) {
+                        setFieldErrors((prev) => { const n = { ...prev }; delete n.phone; return n; });
+                      }
+                    }}
+                    className={inputClass("phone").replace("mt-0.5 ", "").replace("rounded-lg", "rounded-r-lg rounded-l-none")}
+                  />
+                </div>
               </FormField>
               <FormField label="Alternative Phone Number" required icon={Phone} error={fieldErrors.alternativePhone}>
-                <input
-                  name="alternativePhone"
-                  type="tel"
-                  required
-                  placeholder="+91 87654 32109"
-                  value={form.alternativePhone}
-                  onChange={handleChange}
-                  className={inputClass("alternativePhone")}
-                />
+                <div className="relative mt-0.5 flex">
+                  <span className="flex items-center rounded-l-lg border border-r-0 border-slate-200 dark:border-[#2A303C] bg-slate-100 dark:bg-[#1A2234] px-3 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-400">
+                    +91
+                  </span>
+                  <input
+                    name="alternativePhone"
+                    type="tel"
+                    required
+                    placeholder="8765432109"
+                    value={form.alternativePhone}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setForm((prev) => ({ ...prev, alternativePhone: val }));
+                      if (fieldErrors.alternativePhone) {
+                        setFieldErrors((prev) => { const n = { ...prev }; delete n.alternativePhone; return n; });
+                      }
+                    }}
+                    className={inputClass("alternativePhone").replace("mt-0.5 ", "").replace("rounded-lg", "rounded-r-lg rounded-l-none")}
+                  />
+                </div>
               </FormField>
             </div>
             
@@ -312,25 +337,40 @@ export default function RegisterPage() {
                     name="citizenship"
                     required
                     value={form.citizenship}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      setForm((prev) => ({ ...prev, aadhaarNumber: "" }));
+                    }}
                     className={inputClass("citizenship") + " appearance-none pr-10"}
                   >
                     <option value="Indian Citizen">Indian Citizen</option>
+                    <option value="Foreign Citizen">Foreign Citizen</option>
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                 </div>
               </FormField>
-              <FormField label="Aadhaar Card Number" required icon={CreditCard} error={fieldErrors.aadhaarNumber}>
+              <FormField 
+                label={form.citizenship === "Foreign Citizen" ? "Passport Number" : "Aadhaar Card Number"} 
+                required 
+                icon={CreditCard} 
+                error={fieldErrors.aadhaarNumber}
+              >
                 <input
                   name="aadhaarNumber"
                   type="text"
                   required
-                  placeholder="1234 5678 9012"
+                  placeholder={form.citizenship === "Foreign Citizen" ? "A12345678" : "1234 5678 9012"}
                   value={form.aadhaarNumber}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "").slice(0, 12);
-                    const formatted = val.replace(/(\d{4})/g, "$1 ").trim();
-                    setForm((prev) => ({ ...prev, aadhaarNumber: formatted }));
+                    const isForeign = form.citizenship === "Foreign Citizen";
+                    let val = e.target.value;
+                    if (!isForeign) {
+                      val = val.replace(/\D/g, "").slice(0, 12);
+                      val = val.replace(/(\d{4})/g, "$1 ").trim();
+                    } else {
+                      val = val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15);
+                    }
+                    setForm((prev) => ({ ...prev, aadhaarNumber: val }));
                     if (fieldErrors.aadhaarNumber) {
                       setFieldErrors((prev) => { const n = { ...prev }; delete n.aadhaarNumber; return n; });
                     }
@@ -362,15 +402,26 @@ export default function RegisterPage() {
                 />
               </FormField>
               <FormField label="Contact Phone" required icon={Phone} error={fieldErrors.emergencyContactPhone}>
-                <input
-                  name="emergencyContactPhone"
-                  type="tel"
-                  required
-                  placeholder="+91 98765 43210"
-                  value={form.emergencyContactPhone}
-                  onChange={handleChange}
-                  className={inputClass("emergencyContactPhone")}
-                />
+                <div className="relative mt-0.5 flex">
+                  <span className="flex items-center rounded-l-lg border border-r-0 border-slate-200 dark:border-[#2A303C] bg-slate-100 dark:bg-[#1A2234] px-3 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-400">
+                    +91
+                  </span>
+                  <input
+                    name="emergencyContactPhone"
+                    type="tel"
+                    required
+                    placeholder="9876543210"
+                    value={form.emergencyContactPhone}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setForm((prev) => ({ ...prev, emergencyContactPhone: val }));
+                      if (fieldErrors.emergencyContactPhone) {
+                        setFieldErrors((prev) => { const n = { ...prev }; delete n.emergencyContactPhone; return n; });
+                      }
+                    }}
+                    className={inputClass("emergencyContactPhone").replace("mt-0.5 ", "").replace("rounded-lg", "rounded-r-lg rounded-l-none")}
+                  />
+                </div>
               </FormField>
               <FormField label="Relation" required icon={User} error={fieldErrors.emergencyContactRelation}>
                 <input

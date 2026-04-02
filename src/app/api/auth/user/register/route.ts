@@ -22,8 +22,8 @@ const bodySchema = z.object({
   emergencyContactName: z.string().min(2, "Contact name is required"),
   emergencyContactPhone: z.string().regex(indianPhoneRegex, "Enter a valid Indian mobile number"),
   emergencyContactRelation: z.string().min(2, "Relation is required"),
-  citizenship: z.string().refine((val) => val === "Indian Citizen", "Only Indian Citizens are currently supported"),
-  aadhaarNumber: z.string().transform((v) => v.replace(/\s/g, "")).pipe(z.string().regex(/^\d{12}$/, "Aadhaar must be a 12-digit number")),
+  citizenship: z.enum(["Indian Citizen", "Foreign Citizen"]),
+  aadhaarNumber: z.string().transform((v) => v.replace(/\s/g, "")).refine((v) => v.length >= 6, "Identification number must be at least 6 characters"),
   consentLocation: z.boolean().refine((val) => val === true, "You must consent to location tracking"),
   consentCredentials: z.boolean().refine((val) => val === true, "You must consent to data storage"),
 });
