@@ -143,20 +143,27 @@ export default function GeoPage() {
   const [aiFenceLoading, setAiFenceLoading] = useState(false);
   const [aiFenceSummary, setAiFenceSummary] = useState<string | null>(null);
 
-  // Amenities state
   const [amenities, setAmenities] = useState<any[]>([]);
+  const [amenitiesLoading, setAmenitiesLoading] = useState(true);
+
+  const hasFetchedAmenities = useRef(false);
 
   // Fetch amenities
   useEffect(() => {
-    if (!loc) return;
-    fetch(`/api/amenities?lat=${loc.lat}&lng=${loc.lng}&radius=10000`)
+    if (!loc || hasFetchedAmenities.current) return;
+    
+    setAmenitiesLoading(true);
+    hasFetchedAmenities.current = true;
+    
+    fetch(`/api/amenities?lat=${loc.lat}&lng=${loc.lng}&radius=6000`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data && data.amenities) {
           setAmenities(data.amenities);
         }
       })
-      .catch((e) => console.error("Failed to fetch amenities:", e));
+      .catch((e) => console.error("Failed to fetch amenities:", e))
+      .finally(() => setAmenitiesLoading(false));
   }, [loc?.lat, loc?.lng]);
 
   // Fetch fences for Thematic map
@@ -453,13 +460,7 @@ export default function GeoPage() {
               <BarChart2 className="h-3.5 w-3.5" />
               Danger Heatmap
             </Link>
-            <Link
-              href="/safe-route"
-              className="hidden sm:flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 transition"
-            >
-              <Navigation className="h-3.5 w-3.5" />
-              Safe Route
-            </Link>
+
             <Link 
               href="/dashboard/user" 
               className="text-sm font-medium text-slate-400 hover:text-white transition"
@@ -603,6 +604,7 @@ export default function GeoPage() {
                <div className="absolute inset-0 z-0">
                  {mapType === "satellite" ? (
                    <SatelliteMap 
+                     key="satellite"
                      lat={loc.lat} 
                      lng={loc.lng} 
                      threatMarkers={threatPins} 
@@ -611,9 +613,11 @@ export default function GeoPage() {
                    />
                  ) : (
                    <ThematicMap
+                     key="thematic"
                      lat={loc.lat}
                      lng={loc.lng}
                      amenities={amenities}
+                     threatMarkers={threatPins}
                      fences={
                        geoFenceCategory === "all"
                          ? [
@@ -773,7 +777,12 @@ export default function GeoPage() {
         <div className="mt-8">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Nearby Amenities & Shelters</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                {loc && amenities.length > 0 ? (
+                {amenitiesLoading ? (
+                    <div className="col-span-3 text-sm text-slate-500 animate-pulse flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Searching for nearby locations...
+                    </div>
+                ) : loc && amenities.length > 0 ? (
                     [
                       amenities.filter(a => a.type === 'hospital').sort((a, b) => distanceMeters(loc.lat, loc.lng, a.lat, a.lng) - distanceMeters(loc.lat, loc.lng, b.lat, b.lng))[0],
                       amenities.filter(a => a.type === 'police').sort((a, b) => distanceMeters(loc.lat, loc.lng, a.lat, a.lng) - distanceMeters(loc.lat, loc.lng, b.lat, b.lng))[0],
@@ -784,7 +793,7 @@ export default function GeoPage() {
                       .map((z, i) => (
                         <div key={i} className="rounded-xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-4 shadow-sm transition hover:border-slate-300 dark:hover:border-white/20">
                             <div className="flex items-center justify-between">
-                                 <h3 className="font-semibold text-slate-900 dark:text-white text-sm truncate pr-2">{z.name}</h3>
+                                 <h3 className="font-semibold text-slate-900 dark:text-white text-sm truncate pr-2" title={z.name}>{z.name}</h3>
                                  <span className="text-xl shrink-0">
                                    {z.type === 'hospital' ? '🏥' : z.type === 'police' ? '🚓' : '🏨'}
                                  </span>
@@ -792,7 +801,7 @@ export default function GeoPage() {
                             <div className="mt-3 flex items-center justify-between text-xs font-semibold">
                                 <span className="text-slate-500 dark:text-slate-400">
                                     {z.dist < 1000 ? `${Math.round(z.dist)} m` : `${(z.dist / 1000).toFixed(1)} km`}
-                                </span>
+                                 </span>
                                 <span className={`capitalize px-2 py-0.5 rounded border ${
                                   z.type === 'hospital' ? 'text-red-500 bg-red-500/10 border-red-500/20' :
                                   z.type === 'police' ? 'text-blue-500 bg-blue-500/10 border-blue-500/20' :
@@ -804,7 +813,9 @@ export default function GeoPage() {
                         </div>
                     ))
                 ) : (
-                    <div className="col-span-3 text-sm text-slate-500">Searching for nearby locations...</div>
+                    <div className="col-span-3 text-sm text-slate-500 p-4 border border-dashed rounded-xl border-slate-300 dark:border-slate-700 text-center">
+                        No essential amenities found within a 6km radius.
+                    </div>
                 )}
             </div>
         </div>

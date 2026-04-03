@@ -3,7 +3,7 @@ import { analyzeThreat, scoreToTTLHours } from "@/lib/threat-engine";
 import { getSessionPayload } from "@/lib/auth-user";
 import { prisma } from "@/lib/prisma";
 
-const CACHE_RADIUS_DEG = 0.005;
+const CACHE_RADIUS_DEG = 0.135; // ~15km radius for deduplication
 
 // GET /api/threat-map?lat=&lng=
 // Public/User: threat score + ChatGPT/heuristic map pins.
@@ -75,8 +75,8 @@ export async function GET(req: Request) {
   // 2. Perform live AI threat analysis
   const result = await analyzeThreat(locationName, { lat, lng });
 
-  // 3. If threat is elevated and user is logged in, log it for admin verification
-  if ((result.zone === "RED" || result.zone === "ORANGE") && session?.sub) {
+  // 3. Only ping the admin if the threat is strictly HIGH SEVERITY (Score >= 80)
+  if (result.score >= 80 && session?.sub) {
     const recentPending = await prisma.threatZone.findFirst({
       where: {
         lat: { gte: lat - CACHE_RADIUS_DEG, lte: lat + CACHE_RADIUS_DEG },

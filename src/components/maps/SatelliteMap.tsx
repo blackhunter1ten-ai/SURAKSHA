@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { ThreatMarker as ThreatPin } from "@/lib/threat-engine";
@@ -170,6 +170,39 @@ export default function SatelliteMap({
             </Marker>
           );
         })}
+
+        {/* Threat Zone Circle Overlays */}
+        {threatMarkers
+          .filter((m) => distanceMeters(lat, lng, m.lat, m.lng) <= 5000)
+          .map((m, i) => {
+            const zoneColor = m.zone === "RED" ? "#ef4444" : m.zone === "ORANGE" ? "#f97316" : m.zone === "YELLOW" ? "#eab308" : "#22c55e";
+            const radius = m.zone === "RED" ? 600 : m.zone === "ORANGE" ? 450 : 300;
+            return (
+              <Circle
+                key={`threat-circle-${m.lat}-${m.lng}-${i}`}
+                center={[m.lat, m.lng]}
+                radius={radius}
+                pathOptions={{
+                  color: zoneColor,
+                  fillColor: zoneColor,
+                  fillOpacity: 0.18,
+                  weight: 2,
+                  dashArray: "8 4",
+                }}
+              >
+                <Popup maxWidth={260}>
+                  <div style={{ fontFamily: "Inter, sans-serif" }}>
+                    <div style={{ display: "inline-block", background: zoneColor + "22", color: zoneColor, border: `1px solid ${zoneColor}55`, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>
+                      {m.zone} THREAT ZONE
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", marginBottom: 4 }}>📍 {m.label}</div>
+                    <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.4 }}>{m.summary}</div>
+                    <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 6 }}>Radius: {radius}m · Verified by Authority</div>
+                  </div>
+                </Popup>
+              </Circle>
+            );
+          })}
 
         {/* Render Amenities */}
         {amenities.map((amenity) => {

@@ -9,6 +9,7 @@ import {
   Activity,
   AlertTriangle,
   BarChart3,
+  Brain,
   CheckCircle2,
   Clock,
   Eye,
@@ -135,14 +136,14 @@ type AdminGeoFence = {
   createdAt: string;
 };
 
-type Tab = "overview" | "alerts" | "threats" | "firs" | "analytics" | "tourists" | "geofences";
+type Tab = "overview" | "alerts" | "threats" | "firs" | "analytics" | "tourists" | "geofences" | "intelligence";
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as Tab | null;
   const [tab, setTab] = useState<Tab>(
-    tabParam && ["overview", "alerts", "threats", "firs", "analytics", "tourists", "geofences"].includes(tabParam)
+    tabParam && ["overview", "alerts", "threats", "firs", "analytics", "tourists", "geofences", "intelligence"].includes(tabParam)
       ? tabParam
       : "overview",
   );
@@ -156,7 +157,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tabParam && ["overview", "alerts", "threats", "firs", "analytics", "tourists", "geofences"].includes(tabParam)) {
+    if (tabParam && ["overview", "alerts", "threats", "firs", "analytics", "tourists", "geofences", "intelligence"].includes(tabParam)) {
       setTab(tabParam);
     }
   }, [tabParam]);
@@ -275,6 +276,7 @@ export default function AdminDashboardPage() {
           ["firs", "Incident Reports", FileText],
           ["analytics", "Deep Analytics", BarChart3],
           ["tourists", "Registry Matrix", Users],
+          ["intelligence", "Intelligence", Brain],
         ] as const).map(([k, label, Icon]) => (
           <button
             key={k}
@@ -348,6 +350,7 @@ export default function AdminDashboardPage() {
             .then((r) => r.json())
             .then((d) => setAdminGeoFences(d.fences ?? []));
         }} />}
+        {tab === "intelligence" && <IntelligenceTab />}
       </div>
     </div>
   );
@@ -1861,3 +1864,439 @@ function EmptyState({
     </div>
   );
 }
+
+/* ──────────────────────────────────────────────────────── */
+/*  INTELLIGENCE TAB — AI Risk Research Agent                */
+/* ──────────────────────────────────────────────────────── */
+
+type AgentIncidentOutput = {
+  incident_id: string;
+  title: string;
+  category: string;
+  risk_type: string;
+  severity: string;
+  risk_level: string;
+  summary: string;
+  location: {
+    place: string;
+    district: string;
+    state: string;
+    country: string;
+    coordinates: { lat: number | null; lng: number | null };
+  };
+  published_at: string;
+  source: {
+    name: string;
+    type: string;
+    url: string;
+    trust_score: number;
+  };
+  supporting_sources: { name: string; url: string; published_at: string }[];
+  confidence_score: number;
+  zone_recommendation: {
+    recommended: boolean;
+    zone_name: string;
+    reason: string;
+    suggested_risk_level: string;
+    admin_action: string;
+  };
+};
+
+type AgentZoneRec = {
+  zone_name: string;
+  location: string;
+  district: string;
+  state: string;
+  primary_threat: string;
+  supporting_incident_ids: string[];
+  confidence_score: number;
+  suggested_risk_level: string;
+  reason: string;
+  admin_action: string;
+};
+
+type AgentResult = {
+  query_region: string;
+  generated_at: string;
+  status: string;
+  summary: {
+    total_sources_checked: number;
+    total_trusted_sources_used: number;
+    total_incidents_found: number;
+    high_priority_incidents: number;
+  };
+  incidents: AgentIncidentOutput[];
+  recommended_zones: AgentZoneRec[];
+  notes: string[];
+};
+
+function IntelligenceTab() {
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<AgentResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showJson, setShowJson] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [progress, setProgress] = useState("");
+
+  const runAgent = async () => {
+    if (!city.trim()) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setSaveMsg(null);
+    setSelectedIds(new Set());
+    setProgress("Searching trusted sources...");
+
+    try {
+      const res = await fetch("/api/admin/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city: city.trim(), state: state.trim() }),
+      });
+
+      setProgress("Analyzing results...");
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Agent failed");
+
+      setResult(data);
+      setProgress("");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+      setProgress("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const saveSelected = async () => {
+    if (!result || selectedIds.size === 0) return;
+    setSaving(true);
+    setSaveMsg(null);
+
+    const incidents = result.incidents.filter((i) => selectedIds.has(i.incident_id));
+
+    try {
+      const res = await fetch("/api/admin/research/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ incidents }),
+      });
+      const data = await res.json();
+      setSaveMsg(data.message || `${data.created} saved`);
+    } catch {
+      setSaveMsg("Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const SEVERITY_COLORS: Record<string, string> = {
+    critical: "bg-red-500/20 text-red-400 border-red-500/40",
+    high: "bg-orange-500/20 text-orange-400 border-orange-500/40",
+    medium: "bg-amber-500/20 text-amber-400 border-amber-500/40",
+    low: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
+  };
+
+  const RISK_COLORS: Record<string, string> = {
+    CRITICAL: "bg-red-600/20 text-red-400 border-red-500/50",
+    "HIGH RISK": "bg-red-500/20 text-red-400 border-red-500/40",
+    WARNING: "bg-orange-500/20 text-orange-400 border-orange-500/40",
+    CAUTION: "bg-amber-500/20 text-amber-400 border-amber-500/40",
+    SAFE: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
+  };
+
+  const ACTION_COLORS: Record<string, string> = {
+    urgent_review: "bg-red-600 text-white hover:bg-red-500",
+    create_zone: "bg-orange-500 text-white hover:bg-orange-400",
+    review: "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30",
+    monitor: "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700",
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Search bar */}
+      <div className="rounded-2xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-5 border-b border-slate-100 dark:border-[#2A303C] pb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/30">
+              <Brain className="h-5 w-5 text-purple-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold tracking-widest uppercase text-slate-900 dark:text-white">AI Risk Intelligence Agent</h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">Search · Scrape · Analyze · Recommend</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1 block">City *</label>
+              <input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runAgent()}
+                placeholder="Dehradun"
+                className="w-full rounded-xl border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-4 py-2.5 text-sm text-slate-900 dark:text-white outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400/50 transition"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1 block">State</label>
+              <input
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runAgent()}
+                placeholder="Uttarakhand"
+                className="w-full rounded-xl border border-slate-300 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19] px-4 py-2.5 text-sm text-slate-900 dark:text-white outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400/50 transition"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={runAgent}
+                disabled={loading || !city.trim()}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:from-purple-500 hover:to-blue-400 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-lg"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                {loading ? "Running..." : "Run Agent"}
+              </button>
+            </div>
+          </div>
+
+          {loading && progress && (
+            <div className="mt-4 flex items-center gap-3 p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
+              <Loader2 className="h-4 w-4 animate-spin text-purple-400" />
+              <p className="text-xs text-purple-400 font-mono">{progress}</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-sm text-red-400">
+              <AlertTriangle className="h-4 w-4 shrink-0" /> {error}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      {result && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="rounded-xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-4 text-center">
+            <p className="text-2xl font-bold text-slate-900 dark:text-white">{result.summary.total_sources_checked}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Sources Checked</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-4 text-center">
+            <p className="text-2xl font-bold text-cyan-500">{result.summary.total_trusted_sources_used}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Trusted Sources</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-4 text-center">
+            <p className="text-2xl font-bold text-amber-500">{result.summary.total_incidents_found}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">Incidents Found</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-4 text-center">
+            <p className="text-2xl font-bold text-red-500">{result.summary.high_priority_incidents}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">High Priority</p>
+          </div>
+        </div>
+      )}
+
+      {/* Zone Recommendations */}
+      {result && result.recommended_zones.length > 0 && (
+        <div className="rounded-2xl border border-purple-500/30 bg-purple-500/5 dark:bg-purple-950/20 p-6">
+          <h3 className="flex items-center gap-2 text-sm font-bold tracking-widest uppercase text-purple-400 mb-4">
+            <Radar className="h-4 w-4" />
+            Zone Recommendations ({result.recommended_zones.length})
+          </h3>
+          <div className="space-y-3">
+            {result.recommended_zones.map((zone, i) => (
+              <div key={i} className="rounded-xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{zone.zone_name}</p>
+                    <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${RISK_COLORS[zone.suggested_risk_level] ?? RISK_COLORS.CAUTION}`}>
+                      {zone.suggested_risk_level}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400">Confidence: {zone.confidence_score}%</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{zone.reason}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-1">
+                    {zone.location && `${zone.location}, `}{zone.district}, {zone.state} · {zone.supporting_incident_ids.length} incident(s)
+                  </p>
+                </div>
+                <div>
+                  <span className={`inline-block rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-widest cursor-default ${ACTION_COLORS[zone.admin_action] ?? ACTION_COLORS.monitor}`}>
+                    {zone.admin_action.replace(/_/g, " ")}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Incidents */}
+      {result && result.incidents.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <h3 className="text-sm font-bold tracking-widest uppercase text-slate-900 dark:text-white flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Detected Incidents ({result.incidents.length})
+            </h3>
+            <div className="flex items-center gap-3">
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={saveSelected}
+                  disabled={saving}
+                  className="flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white hover:bg-cyan-400 disabled:opacity-50 transition"
+                >
+                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                  Save {selectedIds.size} to Threats
+                </button>
+              )}
+              {saveMsg && (
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> {saveMsg}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {result.incidents.map((inc) => (
+              <div
+                key={inc.incident_id}
+                className={`rounded-xl border bg-white dark:bg-[#131B2B]/60 backdrop-blur p-5 transition hover:border-purple-500/30 ${
+                  selectedIds.has(inc.incident_id)
+                    ? "border-cyan-500/50 ring-1 ring-cyan-500/20"
+                    : "border-slate-200 dark:border-[#2A303C]"
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  {/* Checkbox */}
+                  <div className="mt-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(inc.incident_id)}
+                      onChange={() => toggleSelect(inc.incident_id)}
+                      className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 accent-cyan-500 cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    {/* Header */}
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{inc.title}</p>
+                      <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${SEVERITY_COLORS[inc.severity] ?? SEVERITY_COLORS.medium}`}>
+                        {inc.severity}
+                      </span>
+                      <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${RISK_COLORS[inc.risk_level] ?? RISK_COLORS.CAUTION}`}>
+                        {inc.risk_level}
+                      </span>
+                      <span className="rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                        {inc.category.replace(/_/g, " ")}
+                      </span>
+                    </div>
+
+                    {/* Summary */}
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-2">{inc.summary}</p>
+
+                    {/* Meta */}
+                    <div className="flex flex-wrap gap-3 text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-cyan-500" /> {inc.location.place}{inc.location.district ? `, ${inc.location.district}` : ""}, {inc.location.state}</span>
+                      {inc.published_at && <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(inc.published_at).toLocaleDateString()}</span>}
+                      <span>Trust: {inc.source.trust_score}/100</span>
+                      <span>Confidence: {inc.confidence_score}/100</span>
+                    </div>
+
+                    {/* Source */}
+                    <div className="mt-2 p-2 rounded-lg border border-slate-100 dark:border-[#2A303C] bg-slate-50 dark:bg-[#0B0F19]/50 flex items-center gap-2 text-[10px]">
+                      <span className="font-bold text-slate-500 dark:text-slate-400">Source:</span>
+                      <a href={inc.source.url} target="_blank" rel="noreferrer" className="text-cyan-500 hover:underline truncate">{inc.source.name}</a>
+                      <span className="text-slate-400">({inc.source.type})</span>
+                      {inc.supporting_sources.length > 1 && (
+                        <span className="ml-auto font-bold text-purple-400">+{inc.supporting_sources.length - 1} more source{inc.supporting_sources.length > 2 ? "s" : ""}</span>
+                      )}
+                    </div>
+
+                    {/* Confidence bar */}
+                    <div className="mt-3 h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          inc.confidence_score >= 70
+                            ? "bg-red-500"
+                            : inc.confidence_score >= 50
+                              ? "bg-orange-500"
+                              : inc.confidence_score >= 30
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
+                        }`}
+                        style={{ width: `${inc.confidence_score}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Agent Notes */}
+      {result && result.notes.length > 0 && (
+        <div className="rounded-xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-4">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Agent Log</h4>
+          <div className="space-y-1">
+            {result.notes.map((note, i) => (
+              <p key={i} className="text-xs text-slate-500 dark:text-slate-400 font-mono flex items-start gap-2">
+                <span className="text-cyan-500 mt-px">›</span> {note}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Raw JSON toggle */}
+      {result && (
+        <div className="rounded-xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowJson(!showJson)}
+            className="w-full flex items-center justify-between px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#0B0F19] transition"
+          >
+            <span className="flex items-center gap-2"><Eye className="h-3 w-3" /> Raw JSON Output</span>
+            <span>{showJson ? "▼" : "▶"}</span>
+          </button>
+          {showJson && (
+            <div className="border-t border-slate-200 dark:border-[#2A303C] p-4 max-h-96 overflow-auto">
+              <pre className="text-[10px] text-slate-500 dark:text-slate-400 font-mono whitespace-pre-wrap">{JSON.stringify(result, null, 2)}</pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!result && !loading && (
+        <EmptyState
+          icon={Brain}
+          message="Intelligence Agent Ready"
+          hint="Enter a city name and click Run Agent to scan trusted sources for safety incidents."
+          color="cyan"
+        />
+      )}
+    </div>
+  );
+}
+

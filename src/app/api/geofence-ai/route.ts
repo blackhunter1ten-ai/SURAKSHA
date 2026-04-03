@@ -106,9 +106,12 @@ Threat categories:
    - Unsafe neighborhoods
 
 RULES:
-- NEVER invent specific incidents like dates or news events.
-- Use general hazard geography (terrain, rivers, hills, forests, urban density).
-- ALWAYS return at least 1 hazard, 1 traffic, and 1 risk item.
+- You are a Real-Time Intelligence Engine.
+- DO NOT invent fake places. Lookup the coordinates (${lat}, ${lng}) and identify the ACTUAL neighborhoods, roads, or geographical features (rivers, hills, highways) within 20km.
+- Base hazards on REAL topography (e.g., if there's a river, name the river for flood risks. If it's a hilly city, name the hill/mountain passages for landslides).
+- Base traffic on REAL major roads or intersections near these coordinates.
+- Base risks on REAL commercial or secluded areas nearby.
+- ALWAYS return exactly 2 hazard, 2 traffic, and 2 risk items to ensure the map is well-populated.
 - Output ONLY JSON. No extra text.
 
 OUTPUT FORMAT:
@@ -156,12 +159,12 @@ OUTPUT FORMAT:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4.1",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
             content:
-              "You are SURAKSHA, a geospatial safety assistant. Reply with valid JSON only, no markdown fences.",
+              "You are SURAKSHA, a geospatial safety assistant. Reply with valid JSON only.",
           },
           { role: "user", content: threatPrompt },
         ],

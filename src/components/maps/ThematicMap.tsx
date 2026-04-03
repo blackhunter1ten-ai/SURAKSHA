@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Circle, Polygo
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { GeoFenceMapFence } from "./GeoFenceMap"; // reuse the type
+import type { ThreatMarker as ThreatPin } from "@/lib/threat-engine";
 
 export interface AmenityItem {
   id: string;
@@ -247,11 +248,13 @@ export default function ThematicMap({
   lng,
   fences = [],
   amenities = [],
+  threatMarkers = [],
 }: {
   lat: number;
   lng: number;
   fences?: GeoFenceMapFence[];
   amenities?: AmenityItem[];
+  threatMarkers?: ThreatPin[];
 }) {
   return (
     <div className="h-full w-full">
@@ -327,6 +330,56 @@ export default function ThematicMap({
             );
           }
           return null;
+        })}
+
+        {/* Threat Zone Circle Overlays from DB */}
+        {threatMarkers.map((m, i) => {
+          const ZONE_COLOR_MAP: Record<string, string> = { RED: "#ef4444", ORANGE: "#f97316", YELLOW: "#eab308", GREEN: "#22c55e" };
+          const zoneColor = ZONE_COLOR_MAP[m.zone] || "#ef4444";
+          const radius = m.zone === "RED" ? 600 : m.zone === "ORANGE" ? 450 : 300;
+          return (
+            <Circle
+              key={`threat-${m.lat}-${m.lng}-${i}`}
+              center={[m.lat, m.lng]}
+              radius={radius}
+              pathOptions={{
+                color: zoneColor,
+                fillColor: zoneColor,
+                fillOpacity: 0.22,
+                weight: 2.5,
+                dashArray: "8 4",
+              }}
+            >
+              <Popup maxWidth={280} minWidth={200}>
+                <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", fontSize: "12px", minWidth: "200px" }}>
+                  <div style={{
+                    display: "inline-block",
+                    background: zoneColor + "22",
+                    border: `1.5px solid ${zoneColor}`,
+                    borderRadius: "6px",
+                    padding: "2px 10px",
+                    marginBottom: "8px",
+                  }}>
+                    <span style={{ color: zoneColor, fontWeight: 800, fontSize: "11px", letterSpacing: "1.5px", textTransform: "uppercase" }}>
+                      {m.zone} THREAT ZONE
+                    </span>
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: "13px", color: "#1e293b", marginBottom: "4px" }}>
+                    📍 {m.label}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#475569", lineHeight: 1.4, margin: "6px 0" }}>
+                    {m.summary}
+                  </div>
+                  {m.newsSource && (
+                    <div style={{ marginTop: 6, padding: "6px 8px", background: "rgba(0,0,0,0.04)", borderLeft: `3px solid ${zoneColor}`, borderRadius: 4, fontSize: 11, color: "#475569", lineHeight: 1.5 }}>
+                      <span style={{ fontWeight: 700 }}>📰 News:</span> {m.newsSource}
+                    </div>
+                  )}
+                  <div style={{ fontSize: "10px", color: "#94a3b8", marginTop: 6 }}>Radius: {radius}m · Verified by Authority</div>
+                </div>
+              </Popup>
+            </Circle>
+          );
         })}
 
         {/* Render Amenities */}
