@@ -343,9 +343,9 @@ export default function ThematicMap({
               center={[m.lat, m.lng]}
               radius={radius}
               pathOptions={{
-                color: zoneColor,
-                fillColor: zoneColor,
-                fillOpacity: 0.22,
+                color: "#6B7280", // Unified Grey Color
+                fillColor: "#9ca3af", // Lighter grey fill
+                fillOpacity: 0.25,
                 weight: 2.5,
                 dashArray: "8 4",
               }}

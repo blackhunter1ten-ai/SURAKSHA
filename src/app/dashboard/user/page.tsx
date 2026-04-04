@@ -245,100 +245,8 @@ export default function UserDashboardPage() {
 function OverviewTab({ profile, stats }: { profile: Profile | null; stats: Stats | null }) {
   return (
     <div className="space-y-6">
-      {/* Status cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={Shield}
-          title="Safety Status"
-          value={stats?.safetyStatus ?? "—"}
-          color={
-            stats?.safetyStatus === "SAFE"
-              ? "emerald"
-              : stats?.safetyStatus === "WARNING"
-                ? "amber"
-                : "red"
-          }
-        />
-        <StatCard icon={FileText} title="FIRs Filed" value={String(stats?.totalFIRs ?? 0)} color="cyan" />
-        <StatCard icon={Siren} title="SOS Events" value={String(stats?.totalEmergencies ?? 0)} color="red" />
-        <StatCard
-          icon={CheckCircle2}
-          title="Identity KYC"
-          value={stats?.kycStatus ?? "Pending"}
-          color={stats?.kycStatus === "Complete" ? "emerald" : "amber"}
-        />
-      </div>
-
-      {/* Profile summary + Safety info */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {profile && (
-          <div className="rounded-2xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-6">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white tracking-wide">
-              <User className="h-4 w-4 text-emerald-500 " />
-              Profile Highlights
-            </h3>
-            <div className="mt-6 flex items-center gap-5">
-              {profile.profileImage ? (
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30 group-hover:opacity-60 transition" />
-                  <img
-                    src={profile.profileImage}
-                    alt={profile.name}
-                    className="relative h-16 w-16 rounded-full object-cover ring-2 ring-slate-200 dark:ring-[#2A303C]"
-                  />
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30" />
-                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-cyan-600 text-xl font-bold text-white ring-2 ring-emerald-400/50  ">
-                    {profile.name.charAt(0).toUpperCase()}
-                  </div>
-                </div>
-              )}
-              <div>
-                <p className="font-bold text-slate-900 dark:text-white text-lg">{profile.name}</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-mono">{profile.email}</p>
-              </div>
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
-              <InfoRow label="Phone" value={profile.phone} />
-              <InfoRow label="Gender" value={profile.gender} />
-              <InfoRow label="Nationality" value={profile.nationality} />
-              <InfoRow label="Blood Group" value={profile.bloodGroup} neonValue />
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-2xl border border-slate-200 dark:border-[#2A303C] bg-white dark:bg-[#131B2B] p-6 relative overflow-hidden">
-          <div className="absolute pointer-events-none -top-20 -right-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px]" />
-          <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white tracking-wide">
-            <MapPin className="h-4 w-4 text-cyan-500 " />
-            Live Telemetry
-          </h3>
-          <div className="mt-6 space-y-4 relative z-10">
-            <InfoRow label="Last Known Array" value={stats?.lastKnownAddress || "Awaiting GPS Fix"} />
-            <InfoRow label="Telemetry Signal" value={stats?.locationTrackingStatus} />
-            {stats?.lastEmergency && (
-              <InfoRow
-                label="Last SOS Beacon"
-                value={`${new Date(stats.lastEmergency.date).toLocaleDateString()} — ${stats.lastEmergency.resolved ? "Secured" : "Active"}`}
-              />
-            )}
-          </div>
-          <div className="mt-8 relative z-10">
-            <Link
-              href="/geo"
-              className="group inline-flex items-center gap-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 px-5 py-2.5 text-sm font-semibold text-cyan-500 hover:bg-cyan-500/20 hover:border-cyan-400 transition hover: "
-            >
-              <MapPin className="h-4 w-4" />
-              Link Live Telemetry
-            </Link>
-          </div>
-        </div>
-      </div>
-
       {/* Quick Actions */}
-      <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-8 mb-4">Quick Actions</h3>
+      <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Quick Actions</h3>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ActionCard
           href="/emergency"
@@ -367,6 +275,33 @@ function OverviewTab({ profile, stats }: { profile: Profile | null; stats: Stats
           title="Geo Tracking"
           description="Global mapping"
           color="emerald"
+        />
+      </div>
+
+
+
+      {/* Status cards */}
+      <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-8 mb-4">Safety Status</h3>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          icon={Shield}
+          title="Safety Status"
+          value={stats?.safetyStatus ?? "—"}
+          color={
+            stats?.safetyStatus === "SAFE"
+              ? "emerald"
+              : stats?.safetyStatus === "WARNING"
+                ? "amber"
+                : "red"
+          }
+        />
+        <StatCard icon={FileText} title="FIRs Filed" value={String(stats?.totalFIRs ?? 0)} color="cyan" />
+        <StatCard icon={Siren} title="SOS Events" value={String(stats?.totalEmergencies ?? 0)} color="red" />
+        <StatCard
+          icon={CheckCircle2}
+          title="Identity KYC"
+          value={stats?.kycStatus ?? "Pending"}
+          color={stats?.kycStatus === "Complete" ? "emerald" : "amber"}
         />
       </div>
     </div>
